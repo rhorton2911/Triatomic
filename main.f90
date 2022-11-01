@@ -28,7 +28,7 @@ program H3Plus
    real(dp):: alphal, mu
    real(dp), dimension(3):: R, theta, phi !Coordinates and charge of each nucleus
    integer, dimension(3):: charge
-   real(dp):: Rij
+   real(dp):: Rij, cosij
    logical:: sorted
    real(dp):: E1, E2, temp
    real(dp):: Yint !declare a type for Yint function output
@@ -48,7 +48,7 @@ program H3Plus
    !Specify distances of nuclei from the origin
    R(1) = indata%R(1)
    R(2) = indata%R(2)
-   R(3) = indata%R(2)
+   R(3) = indata%R(3)
 
    !Angular coordinates of each nucleus
    theta(1) = indata%theta(1)
@@ -252,7 +252,6 @@ program H3Plus
    deallocate(VTemp)
    V(:,:) = (-1.0_dp)*V(:,:)
 
-
    deallocate(angular)
    H(:,:) = KMat(:,:) + V(:,:)
 
@@ -272,8 +271,9 @@ program H3Plus
    !Nuclear-nuclear matrix elements, being multiples of the overlap matrix, do not affect electronic wave functions.
    do ii=1, 3
       do jj = ii+1, 3
-         !Use law of cosines, angle argument relies on nuclei being coplanar
-         Rij = sqrt(R(ii)**2 + R(jj)**2 - 2*R(ii)*R(jj)*cos(theta(ii)-theta(jj)))
+         !Use law of cosines to compute distance between nuclei
+	 cosij = cos(theta(ii))*cos(theta(jj)) + sin(theta(ii))*sin(theta(jj))*cos(phi(ii)-phi(jj))
+         Rij = sqrt(R(ii)**2 + R(jj)**2 - 2*R(ii)*R(jj)*cosij)
 	 !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dp) then
             w(:) = w(:) + dble(charge(ii)*charge(jj))/Rij

@@ -329,7 +329,7 @@ module basismodule
 		   lambdaind = 1
 	           do lambda=0, indata%lambdamax
 	              ratio(:) = (min(rgrid(:),R)**lambda)/(max(rgrid(:),R)**(lambda+1))
-	      	      f(:) = basis(:,rjj) * z * ratio(:) * basis(:,rii)
+	      	      f(:) = basis(:,rjj) * dble(z) * ratio(:) * basis(:,rii)
 	      	      integral = sum( f(:)*weights(:) )
 
 		      !For non-diatomic molecules, the angular part includes weighting by 

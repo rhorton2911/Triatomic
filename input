@@ -1,7 +1,7 @@
-50    !N (Basis size)
+20    !N (Basis size)
 1     !Number of exponential fallof parameters in the next line
-5.0 2.0 0.25 0.1   !alpha (exponential falloff parameter)
-2     !Specified lmax of the basis set
+1.0 2.0 0.25 0.1   !alpha (exponential falloff parameter)
+1     !Specified lmax of the basis set
 0.005   !dr (grid spacing)
 20.0  !rmax (maximum radius for the radial grid)
 6     !lambda max
@@ -10,7 +10,7 @@
 1     !z1 (charge of nucleus 1)
 1     !z2 (charge of nucleus 2)
 1     !z3 (charge of nucleus 3)
-1.0   !R1 (radius of nucleus 1)
+0.0   !R1 (radius of nucleus 1)
 0.0   !R2 (radius of nucleus 2)
 0.0   !R3 (radius of nucleus 3)
 0.0       !theta1 (degrees)
