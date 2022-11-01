@@ -17,12 +17,17 @@ module basismodule
 	    integer:: l         !Angular momentum parameter, max l of the basis
 	    real(dp):: dr       !radial grid spacing
 	    real(dp):: rmax     !number of radial grid points
-	    real(dp):: R        !Nuclear radial coordinate
 	    integer:: lambdamax  !Maximum lambda in expansion of potential
 	    integer:: mmax       !Maximum angular momentum projection onto Rhat
-	    integer:: z1         !Charge of nucleus 1
-	    integer:: z2         !Charge of nucleus 2
-	    integer:: z3         !Charge of nucleus 3
+	    !Properties and coordinates of each nucleus
+	    integer, dimension(3):: charge  
+	    real(dp), dimension(3):: R
+	    real(dp), dimension(3):: theta
+	    real(dp), dimension(3):: phi
+
+	    !integer:: z1         !Charge of nucleus 1
+	    !integer:: z2         !Charge of nucleus 2
+	    !integer:: z3         !Charge of nucleus 3
 	 end type input
 
 
@@ -40,6 +45,7 @@ module basismodule
 			integer:: ii
 			real(dp), dimension(:), allocatable:: temp
 			integer:: counter
+			real(dp):: angletemp !Temporary storage for angle in degrees
 
 			open(20,file="input")
 
@@ -55,10 +61,24 @@ module basismodule
 			read(20,*) indata%lambdamax
 			read(20,*) indata%mmax
 			read(20,*)
-			read(20,*) indata%R
-			read(20,*) indata%z1
-			read(20,*) indata%z2
-			read(20,*) indata%z3
+			read(20,*) indata%charge(1)
+			read(20,*) indata%charge(2)
+			read(20,*) indata%charge(3)
+			read(20,*) indata%R(1)
+			read(20,*) indata%R(2)
+			read(20,*) indata%R(3)
+			read(20,*) angletemp
+			indata%theta(1) = pi*(angletemp/180.0_dp)
+			read(20,*) angletemp
+			indata%theta(2) = pi*(angletemp/180.0_dp)
+			read(20,*) angletemp
+			indata%theta(3) = pi*(angletemp/180.0_dp)
+			read(20,*) angletemp
+			indata%phi(1) = pi*(angletemp/180.0_dp)
+			read(20,*) angletemp
+			indata%phi(2) = pi*(angletemp/180.0_dp)
+			read(20,*) angletemp
+			indata%phi(3) = pi*(angletemp/180.0_dp)
 
 			allocate(temp(indata%Nalpha))
 			temp(:) = 0.0_dp

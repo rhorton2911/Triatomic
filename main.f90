@@ -25,7 +25,7 @@ program H3Plus
    integer:: lblocksize
    integer:: lmax, N, m_max
    integer:: nstates, ier
-   real(dp):: Rn, alphal, mu
+   real(dp):: alphal, mu
    real(dp), dimension(3):: R, theta, phi !Coordinates and charge of each nucleus
    integer, dimension(3):: charge
    real(dp):: Rij
@@ -33,37 +33,31 @@ program H3Plus
    real(dp):: E1, E2, temp
    real(dp):: Yint !declare a type for Yint function output
 
-   !Legacy .f77 subroutine. Sets up common variables used by function YLM in plql.f
+   !Legacy .f77 subroutine. Sets up common (global :( ) variables used by function YLM in plql.f
    call FAKRED
     
    call readInput(indata)
-   Rn = indata%R
    N = indata%N
    m_max = indata%mmax
    lmax = indata%l
    !Specify charge of each nucleus
-   charge(1) = indata%z1
-   charge(2) = indata%z2
-   charge(3) = indata%z3
+   charge(1) = indata%charge(1)
+   charge(2) = indata%charge(2)
+   charge(3) = indata%charge(3)
     
    !Specify distances of nuclei from the origin
-   !R(1) = Rn
-   !R(2) = Rn
-   !R(3) = Rn
+   R(1) = indata%R(1)
+   R(2) = indata%R(2)
+   R(3) = indata%R(2)
 
-   !Testing case, corresponds to HeH++, with bond length Rn
-   R(1) = 1.0_dp
-   R(2) = 0.0_dp
-   R(3) = 0.0_dp
-
-   !Angular coordinates of each nucleus, hardcoded for H3+ equilibrium geometry for now
-   theta(1) = 0.0_dp
-   theta(2) = 2.0_dp*pi/3.0_dp
-   theta(3) = theta(2)
-   phi(1) = 0.0_dp
-   phi(2) = pi/2.0_dp
-   phi(3) = -pi/2.0_dp
-   
+   !Angular coordinates of each nucleus
+   theta(1) = indata%theta(1)
+   theta(2) = indata%theta(2)
+   theta(3) = indata%theta(3)
+   phi(1) = indata%phi(1)
+   phi(2) = indata%phi(2)
+   phi(3) = indata%phi(3)
+  
    !Set up the radial grid over which to define the basis functions
    nr = int(indata%rmax/indata%dr)
    if (mod(nr,2) .eq. 0) then
@@ -247,7 +241,7 @@ program H3Plus
       end do
    end do
 	
-   !Calculate V matrix, loop over nuclei
+   !Calculate V matrix elements, loop over nuclei
    allocate(VTemp(num_func,num_func))
    do ii = 1, 3
       VTemp(:,:) = 0.0_dp
@@ -276,18 +270,16 @@ program H3Plus
 
    !Include effect of nucleus-nucleus interaction term by simply adding zi*zj/R_ij to energies at the end.
    !Nuclear-nuclear matrix elements, being multiples of the overlap matrix, do not affect electronic wave functions.
-   if (Rn .gt. 0.0_dp) then
-      do ii=1, 3
-	 do jj = ii, 3
-	    !Use law of cosines, angle argument relies on nuclei being coplanar
-	    Rij = sqrt(R(ii)**2 + R(jj)**2 - 2*R(ii)*R(jj)*cos(theta(ii)-theta(jj)))
-	    !Account for degenerate case
-	    if (Rij .gt. 0.0_dp) then
-               w(:) = w(:) + dble(charge(ii)*charge(jj))/Rij
-	    end if
-	 end do
+   do ii=1, 3
+      do jj = ii+1, 3
+         !Use law of cosines, angle argument relies on nuclei being coplanar
+         Rij = sqrt(R(ii)**2 + R(jj)**2 - 2*R(ii)*R(jj)*cos(theta(ii)-theta(jj)))
+	 !Account for degenerate case where nuclei coincide
+         if (Rij .gt. 0.0_dp) then
+            w(:) = w(:) + dble(charge(ii)*charge(jj))/Rij
+         end if
       end do
-   end if
+   end do
 
    open(80,file="energies.txt") 
    do ii = 1, num_func
