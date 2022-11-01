@@ -1,13 +1,22 @@
-40    !N (Basis size)
+50    !N (Basis size)
 1     !Number of exponential fallof parameters in the next line
-1.0 2.0 0.25 0.1   !alpha (exponential falloff parameter)
+5.0 2.0 0.25 0.1   !alpha (exponential falloff parameter)
 2     !Specified lmax of the basis set
 0.005   !dr (grid spacing)
 20.0  !rmax (maximum radius for the radial grid)
 6     !lambda max
-4     !m max (angular mom. proj)
+9     !m max (angular mom. proj)
 !!!!!!!!!!!!!!!Nuclear coordinates!!!!!!!!!!!!
-1.0   !R (radial coordinate)
 1     !z1 (charge of nucleus 1)
 1     !z2 (charge of nucleus 2)
 1     !z3 (charge of nucleus 3)
+1.0   !R1 (radius of nucleus 1)
+0.0   !R2 (radius of nucleus 2)
+0.0   !R3 (radius of nucleus 3)
+0.0       !theta1 (degrees)
+120.0     !theta2 (degrees)
+120.0     !theta3 (degrees)
+0.0       !phi1 (degrees)
+90.0      !phi2 (degrees)
+-90.0     !phi3 (degrees)
+
