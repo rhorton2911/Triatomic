@@ -312,14 +312,17 @@ module basismodule
              
              V(:,:) = 0.0_dp
              
-             allocate(f(nr))
-             allocate(ratio(nr))
-             f(:) = 0.0_dp
-             ratio(:) = 0.0_dp
+
 
 	     !V-matrix elements: calculate using numerical integration
-	     !$OMP PARALLEL DO
+	     !$OMP PARALLEL DO PRIVATE(rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part)
 	     do ii = 1, num_func
+		!Allocate arrays within loop to ensure thread safety
+                allocate(f(nr))
+                allocate(ratio(nr))
+                f(:) = 0.0_dp
+                ratio(:) = 0.0_dp
+		
 	      	do jj = 1, num_func 
 		   !Get the indices of the radial basis functions
 		   rii = rad_ind_list(ii)
@@ -337,19 +340,21 @@ module basismodule
 		      ang_part = 0.0_dp
 		      do q = -lambda, lambda
 			 !Evaluate the angular integral, including spherical harmonics of the nuclear positions
-			 !print*, YLM(lambda,q,theta,phi)
-			 !print*, angular(lambdaind,ii,jj)
 			 ang_part = ang_part + angular(lambdaind,ii,jj)*YLM(lambda,q,theta,phi)
+			 !thread = OMP_GET_THREAD_NUM()
+			 !print*, lambdaind, thread
 			 lambdaind = lambdaind + 1
 		      end do
 	      	      V(ii,jj) = V(ii,jj) + integral*ang_part
 	      	   end do
 	      	end do
+
+	        deallocate(ratio)
+                deallocate(f)
 	     end do
 	     !$OMP END PARALLEL DO
 
-	     deallocate(ratio)
-             deallocate(f)
+
 	 end subroutine getVMat
 
 

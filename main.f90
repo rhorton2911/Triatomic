@@ -299,7 +299,6 @@ program H3Plus
    end do
 
    nstates=num_func
-   !Save one energy from each symmetry for plotting
    energies(:) = w(:)
 
    deallocate(k_list, l_list, m_list, rad_ind_list)
