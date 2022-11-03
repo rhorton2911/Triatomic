@@ -311,11 +311,10 @@ module basismodule
 	     complex(dp):: YLM  !Define output of fortran 77 function YLM
              
              V(:,:) = 0.0_dp
-             
-
 
 	     !V-matrix elements: calculate using numerical integration
-	     !$OMP PARALLEL DO PRIVATE(rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part)
+	     !!!!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part) &
+	     !!!!$OMP& SHARED(V, rgrid, weights, basis, z, R, theta, phi, indata, num_func, rad_ind_list, nr, angular, pi)
 	     do ii = 1, num_func
 		!Allocate arrays within loop to ensure thread safety
                 allocate(f(nr))
@@ -345,14 +344,14 @@ module basismodule
 			 !print*, lambdaind, thread
 			 lambdaind = lambdaind + 1
 		      end do
-	      	      V(ii,jj) = V(ii,jj) + integral*ang_part
+	      	      V(ii,jj) = V(ii,jj) + (4.0_dp*pi/dble(2*lambda+1))*integral*ang_part
 	      	   end do
 	      	end do
 
 	        deallocate(ratio)
                 deallocate(f)
 	     end do
-	     !$OMP END PARALLEL DO
+	     !!!!$OMP END PARALLEL DO
 
 
 	 end subroutine getVMat

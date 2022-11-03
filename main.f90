@@ -245,6 +245,7 @@ program H3Plus
    allocate(VTemp(num_func,num_func))
    do ii = 1, 3
       VTemp(:,:) = 0.0_dp
+      !Calculates V-matrix elements without the factor of (-1)
       call getVMat(radbasis, rgrid, nr, rad_ind_list, VTemp, num_func, &
 	           R(ii), charge(ii), theta(ii), phi(ii), angular, weights, indata)
       V(:,:) = V(:,:) + VTemp(:,:)  
