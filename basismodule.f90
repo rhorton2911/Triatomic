@@ -221,6 +221,90 @@ module basismodule
 	 end function fact
 
 
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getVPotNuc
+	 !Purpose: evaluates the components in the expansion of the nuclear potential in 
+	 !         real or complex spherical harmonics for use in the structure calculation.
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getVPotNuc(rgrid, nr, VPotTemp, R, theta, phi, z, indata)
+	    implicit none
+	    real(dp), allocatable, dimension(:):: rgrid
+	    integer:: nr, z
+	    complex(dp), allocatable, dimension(:,:):: VPotTemp
+	    real(dp):: R, theta, phi
+	    type(input):: indata
+	    integer:: lambda, lambdaind, q
+	    real(dp), allocatable, dimension(:):: f
+	    complex(dp):: Ylm
+
+	    allocate(f(nr))
+
+	    lambdaind = 1
+	    do lambda= 0, indata%lambdamax
+	       f(:) = dble(z)*(min(rgrid(:),R)**lambda)/(max(rgrid(:),R)**(lambda+1))
+
+	       do q = -lambda, lambda 
+		  if (indata%harmop .eq. 1) then
+		     VPotTemp(:,lambdaind) = (4.0_dp*pi/(2.0_dp*dble(lambda) + 1.0_dp))*f(:)*Xlm(lambda,q,theta,phi)
+		  else if (indata%harmop .eq. 0) then
+		     VPotTemp(:,lambdaind) = (4.0_dp*pi/(2.0_dp*dble(lambda) + 1.0_dp))*f(:)*YLM(lambda,q,theta,phi)
+	          end if
+		  lambdaind = lambdaind + 1
+	       end do
+	    end do
+	    deallocate(f)
+
+	 end subroutine getVPotNuc
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getVMatEl
+	 !Purpose: calculates the potential matrix elements using the precalculated 
+	 !         expansion of the potential in spherical harmonics.
+	 !Note: handles both real and complex spherical harmonics. Formulas are the 
+	 !      same for appropriately calculated VPot and angular integrals
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getVMatEl(radbasis, nr, weights, rad_ind_list, V, VPot, num_func, angular, indata)
+	    implicit none
+	    real(dp), dimension(:,:):: radbasis
+	    real(dp), dimension(:):: weights
+	    integer, dimension(:):: rad_ind_list
+            complex(dp), dimension(:), allocatable:: f
+	    integer:: nr, num_func
+	    complex(dp), dimension(:,:):: VPot
+	    complex(dp), dimension(:,:):: V
+	    type(input):: indata
+	    integer:: lambda, lambdaind, q
+	    integer:: ii,jj, rii, rjj
+	    complex(dp):: integral
+	    real(dp), dimension(:,:,:):: angular
+
+	    allocate(f(nr))
+
+	    do ii=1, num_func
+	       do jj = 1, num_func
+		  rii = rad_ind_list(ii)
+		  rjj = rad_ind_list(jj)
+
+	          !Calculate V-matrix element for each lambda in the expansion
+		  lambdaind = 1
+		  do lambda = 0, indata%lambdamax
+		     do q = -lambda, lambda
+	      	        f(:) = radbasis(:,rjj) * VPot(:,lambdaind) * radbasis(:,rii)
+			integral = sum(f(:)*weights(:))
+
+			V(ii,jj) = V(ii,jj) + integral*angular(lambdaind,ii,jj)
+			lambdaind = lambdaind + 1
+		     end do
+		  end do
+	       end do
+	    end do
+	    deallocate(f)
+
+	 end subroutine getVMatEl
+
+
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: getVMat
 	 !Purpose: computes VMatrix elements for a given nucleus using the given basis.
@@ -250,8 +334,8 @@ module basismodule
              V(:,:) = 0.0_dp
 
 	     !V-matrix elements: calculate using numerical integration
-	     !$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part) &
-	     !$OMP& SHARED(V, rgrid, weights, basis, z, R, theta, phi, indata, num_func, rad_ind_list, nr, angular, pi)
+	     !!!!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part) &
+	     !!!!$OMP& SHARED(V, rgrid, weights, basis, z, R, theta, phi, indata, num_func, rad_ind_list, nr, angular, pi)
 	     do ii = 1, num_func
 		!Allocate arrays within loop to ensure thread safety
                 allocate(f(nr))
@@ -276,11 +360,7 @@ module basismodule
 		      ang_part = 0.0_dp
 		      do q = -lambda, lambda
 			 !Evaluate the angular integral, including spherical harmonics of the nuclear positions
-			 if (indata%harmop .eq. 0) then
-			    ang_part = ang_part + angular(lambdaind,ii,jj)*YLM(lambda,q,theta,phi)
-			 else if (indata%harmop .eq. 1) then
-			    ang_part = ang_part + angular(lambdaind,ii,jj)*XLM(lambda,q,theta,phi)
-			 end if
+			 ang_part = ang_part + angular(lambdaind,ii,jj)*YLM(lambda,q,theta,phi)
 
 			 !thread = OMP_GET_THREAD_NUM()
 			 !print*, lambdaind, thread
@@ -293,7 +373,7 @@ module basismodule
 	        deallocate(ratio)
                 deallocate(f)
 	     end do
-	     !$OMP END PARALLEL DO
+	     !!!!$OMP END PARALLEL DO
 
 
 	 end subroutine getVMat

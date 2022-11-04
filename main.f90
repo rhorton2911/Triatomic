@@ -14,7 +14,9 @@ program H3Plus
    integer:: ii, jj, kk
    real(dp), dimension(:), allocatable:: rgrid, w
    real(dp), dimension(:,:), allocatable:: z, wf, basisatl !, B, H, KMat, 
-   complex(dp), dimension(:,:), allocatable:: V, VTemp, H, KMat, B
+   complex(dp), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
+   !real(dp), dimension(:,:), allocatable:: VReal
+   !complex(dp), dimension(:,:), allocatable:: VTemp
    real(dp), dimension(:,:), allocatable:: realH, realB
    real(dp), dimension(:,:), allocatable:: radbasis
    real(dp), dimension(:,:,:), allocatable:: angular
@@ -35,7 +37,8 @@ program H3Plus
 
    !Legacy .f77 subroutine. Sets up common (global :( ) variables used by function YLM in plql.f
    call FAKRED
-    
+   call DFSET
+  
    call readInput(indata)
    N = indata%N
    m_max = indata%mmax
@@ -78,6 +81,20 @@ program H3Plus
    end do
    weights(nr) = 1.0_dp
    weights(:) = weights(:)*indata%dr / 3.0_dp 
+
+   !Set up expansion of potential
+   num_lambda = 0
+   do ii = 0, indata%lambdamax
+      num_lambda = num_lambda +  2*ii + 1 
+   end do
+   allocate(VPot(nr,num_lambda))
+   VPot(:,:) = 0.0_dp
+   allocate(VPotTemp(nr, num_lambda))
+   do ii = 1, 3
+      call getVPotNuc(rgrid, nr, VPotTemp, R(ii), theta(ii), phi(ii), charge(ii), indata)
+      VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
+   end do
+   deallocate(VPotTemp)
    
    !Triatomic molecules do not have good quantum numbers such as angular momentum and parity (like H2+).
    !Instead, the clamped nuclei electronic V-matrix is diagonal in different irreducible representations of a 
@@ -236,8 +253,8 @@ program H3Plus
 	          angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
 		     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
 	       else if (indata%harmop .eq. 1) then
-	          angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
-		     *Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+		  !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
+	          angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
 	       end if
 
 	       !print*, li, mi, lambda, q, lj, mj
@@ -248,16 +265,26 @@ program H3Plus
       end do
    end do
 	
-   !Calculate V matrix elements, loop over nuclei
-   allocate(VTemp(num_func,num_func))
-   do ii = 1, 3
-      VTemp(:,:) = 0.0_dp
-      !Calculates V-matrix elements without the factor of (-1)
-      call getVMat(radbasis, rgrid, nr, rad_ind_list, VTemp, num_func, &
-	           R(ii), charge(ii), theta(ii), phi(ii), angular, weights, indata)
-      V(:,:) = V(:,:) + VTemp(:,:)  
-   end do
-   deallocate(VTemp)
+   !Calculate V matrix elements
+   !if (indata%harmop .eq. 0) then
+   !   allocate(VTemp(num_func,num_func))
+   !   do ii = 1, 3
+   !      VTemp(:,:) = 0.0_dp
+   !      !Calculates V-matrix elements without the factor of (-1)
+   !      call getVMat(radbasis, rgrid, nr, rad_ind_list, VTemp, num_func, &
+   !	           R(ii), charge(ii), theta(ii), phi(ii), angular, weights, indata)
+   !      V(:,:) = V(:,:) + VTemp(:,:)  
+   !   end do
+   !   deallocate(VTemp)
+   !else if (indata%harmop .eq. 1) then
+   !   !allocate(VReal(num_func,num_func))
+   !   !call getVMatReal(radbasis, nr, weights, rad_ind_list, VReal, VPot, num_func, angular, indata)
+   !   !V(:,:) = VReal(:,:)
+   !   !deallocate(VReal)
+   !end if 
+
+   !If real spherical harnmonics are used, V matrix elements will have complex part zero.
+   call getVMatEl(radbasis, nr, weights, rad_ind_list, V, VPot, num_func, angular, indata)
    V(:,:) = (-1.0_dp)*V(:,:)
 
    deallocate(angular)
@@ -291,17 +318,21 @@ program H3Plus
 
    open(80,file="energies.txt") 
    do ii = 1, num_func
+      print*, ii, w(ii)
       write(80,*) ii, w(ii)
    end do
    close(80)
 
-   !Need to divide by r and multiply by Ylm to get full 3D wave function
+   !Need to divide by r and multiply by Ylm or Xlm to get full 3D wave function
    allocate(wf(nr,num_func))
    wf(:,:) = 0.0_dp
    do ii = 1, num_func
     	do jj=1, num_func
            kk = rad_ind_list(jj)
            !MODIFY TO BE A FUNCTION OF (r,theta,phi)
+	   !if (indata%harmop .eq. 0) then
+	   !else if (indata%harmop .eq. 1) then
+	   !end if
     	   wf(:,ii) = wf(:,ii) +  z(jj,ii)*radbasis(:,kk)!*YLM
     	end do
    end do

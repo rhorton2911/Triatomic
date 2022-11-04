@@ -2,8 +2,8 @@ EXEC=H3Plus
 OBJ=wigner.o plql.o intp.o rsg.o numbers.o basismodule.o main.o 
 FC=gfortran
 FLAGS= -Wall -Wno-tabs -pedantic -Werror -fimplicit-none -fopenmp
-ERRFLAGS1= -g -Og -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division
-ERRFLAGS= $(ERRFLAGS1) -Wsurprising --fpe-trap=invalid,zero,overflow,underflow
+ERRFLAGS1= -g3 -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division 
+ERRFLAGS= $(ERRFLAGS1) -Wsurprising --fpe-trap=invalid,zero,overflow,underflow -fstack-check 
 
 #Comment out when not debugging
 CFLAGS=$(FLAGS) $(ERRFLAGS)
