@@ -13,6 +13,8 @@ do
    sed s/RRR/${RNuc}/g input > R=${R}/input
 
    cd R=${R}
+      export OMP_NUM_THREADS=10
+      echo $OMP_NUM_THREADS
       #Run main executable stored in higher directory
       echo "Running: R=${R}"
       ../../H3Plus

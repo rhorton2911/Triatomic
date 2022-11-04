@@ -232,7 +232,14 @@ program H3Plus
 	 lambdaind=1
          do lambda = 0, indata%lambdamax
 	    do q = -lambda, lambda
-	       angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi))*Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+	       if (indata%harmop .eq. 0) then
+	          angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
+		     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+	       else if (indata%harmop .eq. 1) then
+	          angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
+		     *Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+	       end if
+
 	       !print*, li, mi, lambda, q, lj, mj
 	       !print*, angular(lambdaind,ii,jj)
 	       lambdaind = lambdaind + 1 

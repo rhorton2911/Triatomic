@@ -19,6 +19,7 @@ module basismodule
 	    real(dp):: rmax     !number of radial grid points
 	    integer:: lambdamax  !Maximum lambda in expansion of potential
 	    integer:: mmax       !Maximum angular momentum projection onto Rhat
+	    integer:: harmop     !Option to use real or complex spherical harmonics (1=real, 0=complex)
 	    !Properties and coordinates of each nucleus
 	    integer, dimension(3):: charge  
 	    real(dp), dimension(3):: R
@@ -60,6 +61,7 @@ module basismodule
 			read(20,*) indata%rmax
 			read(20,*) indata%lambdamax
 			read(20,*) indata%mmax
+			read(20,*) indata%harmop
 			read(20,*)
 			read(20,*) indata%charge(1)
 			read(20,*) indata%charge(2)
@@ -219,71 +221,6 @@ module basismodule
 	 end function fact
 
 
-
-
-	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !Subroutine: getVMat
-	 !Purpose: computes the VMatrix elements using the given basis.
-	 !         Arrays basis and V assumed to be allocated before call
-	 !         to this subroutine with dimensions V(num_func, num_func)
-	 !         and basis(nr, num_func)
-	 !Date last modified: 
-	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !subroutine getVMat(basis, rgrid,  nr, num_func, V, l_list, R1, R2, m, weights, indata)
-         !    implicit none
-         !    type(input):: indata
-         !    integer:: nr, num_func, m
-         !    real(dp), dimension(:):: rgrid, weights
-         !    real(dp):: R1, R2  !Nuclear distances from origin
-         !    real(dp), dimension(:,:):: basis
-         !    real(dp), dimension(:), allocatable:: f, ratio1, ratio2
-         !    real(dp), dimension(:,:):: V
-         !    integer, dimension(:):: l_list
-         !    integer:: ii, jj, li, lj, lambda
-         !    integer:: z1, z2
-         !    real(dp):: integral
-         !    real(dp):: Yint !declare a type for Yint function output
-         !    
-         !    V(:,:) = 0.0_dp
-         !    
-         !    z1 = indata%z1
-         !    z2 = indata%z2
-         !    
-         !    allocate(f(nr))
-         !    allocate(ratio1(nr), ratio2(nr))	
-         !    f(:) = 0.0_dp
-         !    ratio1(:) = 0.0_dp
-         !    ratio2(:) = 0.0_dp
-         !    
-	 !    !V-matrix elements: calculate using numerical integration
-	 !    !$OMP PARALLEL DO
-	 !    do ii = 1, num_func
-	 !     	do jj = 1, num_func 
-	 !          li = l_list(ii)
-	 !     	   lj = l_list(jj)
-
-	 !          !Calculate V-matrix element for each lambda in the expansion
-	 !          lambda = 0
-	 !          do while (lambda .le. indata%lambdamax)
-	 !             ratio1(:) = (min(rgrid(:),R1)**lambda)/(max(rgrid(:),R1)**(lambda+1))
-	 !             ratio2(:) = (min(rgrid(:),R2)**lambda)/(max(rgrid(:),R2)**(lambda+1))
-	 !     	      f(:) = basis(:,jj) * (z1*ratio1(:) + z2*((-1.0_dp)**lambda)*ratio2(:)) * basis(:,ii)
-	 !     	      integral = sum( f(:)*weights(:) )
-	 !     	      V(ii,jj) = V(ii,jj) + integral*Yint(dble(li),dble(m),dble(lambda),0.0_dp,dble(lj),dble(m))
-
-	 !     	      lambda = lambda + 1
-	 !     	   end do
-	 !     	end do
-	 !    end do
-	 !    !$OMP END PARALLEL DO
-	 !    V(:,:) = (-1.0_dp)*V(:,:)
-
-	 !    deallocate(ratio1, ratio2)
-         !    deallocate(f)
-
-	 !end subroutine getVMat
-
-
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: getVMat
 	 !Purpose: computes VMatrix elements for a given nucleus using the given basis.
@@ -313,8 +250,8 @@ module basismodule
              V(:,:) = 0.0_dp
 
 	     !V-matrix elements: calculate using numerical integration
-	     !!!!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part) &
-	     !!!!$OMP& SHARED(V, rgrid, weights, basis, z, R, theta, phi, indata, num_func, rad_ind_list, nr, angular, pi)
+	     !$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, rii, rjj, lambdaind, lambda, q, ratio, f, integral, ang_part) &
+	     !$OMP& SHARED(V, rgrid, weights, basis, z, R, theta, phi, indata, num_func, rad_ind_list, nr, angular, pi)
 	     do ii = 1, num_func
 		!Allocate arrays within loop to ensure thread safety
                 allocate(f(nr))
@@ -339,7 +276,12 @@ module basismodule
 		      ang_part = 0.0_dp
 		      do q = -lambda, lambda
 			 !Evaluate the angular integral, including spherical harmonics of the nuclear positions
-			 ang_part = ang_part + angular(lambdaind,ii,jj)*YLM(lambda,q,theta,phi)
+			 if (indata%harmop .eq. 0) then
+			    ang_part = ang_part + angular(lambdaind,ii,jj)*YLM(lambda,q,theta,phi)
+			 else if (indata%harmop .eq. 1) then
+			    ang_part = ang_part + angular(lambdaind,ii,jj)*XLM(lambda,q,theta,phi)
+			 end if
+
 			 !thread = OMP_GET_THREAD_NUM()
 			 !print*, lambdaind, thread
 			 lambdaind = lambdaind + 1
@@ -351,12 +293,128 @@ module basismodule
 	        deallocate(ratio)
                 deallocate(f)
 	     end do
-	     !!!!$OMP END PARALLEL DO
+	     !$OMP END PARALLEL DO
 
 
 	 end subroutine getVMat
 
 
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Function: XLM
+	 !Purpose: evaluates the real spherical harmonics for theta and phi in radians
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         real(dp) function XLM(l, m, theta, phi) result(res)
+	    use numbers
+	    implicit none
+	    integer:: l, m
+	    real(dp):: theta, phi
+	    real(dp):: RYLM
+
+	    res = 0.0_dp
+	    if (m .gt. 0) then
+	       res = RYLM(l,m,theta)*sqrt(2.0_dp)*cos(dble(m)*phi)
+	    else if (m .lt. 0) then
+	       res = RYLM(l,abs(m),theta)*sqrt(2.0_dp)*sin(dble(abs(m))*phi)
+	    else if (m .eq. 0) then
+	       !Special case, m=0 equivalent to theta=0, Ylm and Xlm coincide in this case.
+	       res = RYLM(l,m,theta)
+	    end if
+	 end function
+
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Function: Xint
+	 !Purpose: calculates an integral of the product of three real spherical harmonics
+	 !         Xlm(theta,phi)
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 real(dp) function Xint(l1, mu1, l2, mu2, l3, mu3) result(res)
+	    use numbers
+	    implicit none
+	    real(dp):: l1, mu1, l2, mu2, l3, mu3 
+	    real(dp)::Yint
+
+	    if (mod(int(l1+l2+l3),2) .ne. 0) then
+	       res = 0.0_dp
+	    else
+	       if ((abs(mu2) .gt. 0.0_dp) .and. (int(mu3) .eq. 0)) then
+		  res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
+		        *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
+	       else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
+		  if (int(mu1) .eq. 0) then
+		     !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
+		     res = sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
+		  else 
+		     res = 0.0_dp
+		  end if
+	       else 
+		  !Formula for overlap of Xlm in terms of overlap of Ylm
+		  res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
+		        *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
+		        *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
+			*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
+			*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
+	       end if
+	    end if
+
+	 end function Xint
+
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Function: VCoeff
+	 !Purpose: evaluates the coefficients in the unitary transformation from 
+	 !         complex to real spherical harmonics.
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 complex(dp) function VCoeff(m,mu) result(res)
+	    implicit none
+	    real(dp):: m,mu
+	    complex(dp):: i
+
+	    !if (abs(m) .gt. l) then
+	    !   print*, l, m
+	    !   print*, "ERROR: angular momentum projection greater than magnitude, stopping."
+	    !   stop
+	    !end if
+
+	    i = (0.0_dp,1.0_dp)
+
+	    res = kronecker(int(m),0)*kronecker(int(mu),0) + (1.0_dp/sqrt(2.0_dp))*(heavyside(mu)*kronecker(int(m),int(mu)) &
+	          + heavyside(-mu)*(i)*((-1.0_dp)**m)*kronecker(int(m),int(mu)) + heavyside(-mu)*(-i)*kronecker(int(m),int(-mu)) &
+		  + heavyside(mu)*((-1.0_dp)**m)*kronecker(int(m),int(-mu)))
+	 end function VCoeff
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Function: heavyside
+	 !Purpose: evaluates the heavyside function of the argument
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 real(dp) function heavyside(m) result(res)
+	    implicit none
+	    real(dp):: m
+
+	    if (m .gt. 0.0_dp) then
+	       res = 1.0_dp
+	    else 
+	       res = 0.0_dp
+	    end if
+	 end function heavyside
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Function: kronecker
+	 !Purpose: evaluates the kronecker delta as a real number
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 real(dp) function kronecker(n,m) result(res)
+	    implicit none
+	    integer:: n,m
+
+	    res = 0.0_dp
+	    if (n .eq. m) then
+	       res = 1.0_dp
+	    end if
+	 end function kronecker
 
 
 
