@@ -10,7 +10,7 @@ module basismodule
 
    !Type: input
 	 !Purpose: strores program input parameters read in from input file
-	 type input
+	 type smallinput
             integer:: N   !Basis size
 	    integer:: Nalpha !nunber of exponential falloff parameters in input file
 	    real(dp), dimension(:), allocatable:: alpha    !Exponential falloff parameters
@@ -29,7 +29,7 @@ module basismodule
 	    !integer:: z1         !Charge of nucleus 1
 	    !integer:: z2         !Charge of nucleus 2
 	    !integer:: z3         !Charge of nucleus 3
-	 end type input
+	 end type smallinput
 
 
 	 contains
@@ -42,7 +42,7 @@ module basismodule
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine readInput(indata)
 			implicit none
-			type(input)::indata
+			type(smallinput)::indata
 			integer:: ii
 			real(dp), dimension(:), allocatable:: temp
 			integer:: counter
@@ -115,7 +115,7 @@ module basismodule
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine deconstructInput(indata)
 			implicit none
-			type(input):: indata
+			type(smallinput):: indata
 	 
 
 			deallocate(indata%alpha)
@@ -228,12 +228,13 @@ module basismodule
 	 !         real or complex spherical harmonics for use in the structure calculation.
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine getVPotNuc(rgrid, nr, VPotTemp, R, theta, phi, z, indata)
+	    !use grid_radial
 	    implicit none
 	    real(dp), allocatable, dimension(:):: rgrid
 	    integer:: nr, z
 	    complex(dp), allocatable, dimension(:,:):: VPotTemp
 	    real(dp):: R, theta, phi
-	    type(input):: indata
+	    type(smallinput):: indata
 	    integer:: lambda, lambdaind, q
 	    real(dp), allocatable, dimension(:):: f
 	    complex(dp):: Ylm
@@ -258,6 +259,52 @@ module basismodule
 	 end subroutine getVPotNuc
 
 
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getRadMatEl
+	 !Purpose: computes the radial matrix elements of the potential VPot, stores 
+	 !         inside array VRadMatEl, assumed to be allocated outside of this function
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getRadMatEl(radbasis,VPot, nr, weights, VRadMatEl, indata)
+	    implicit none
+	    real(dp), dimension(:,:)::radbasis
+	    complex(dp), dimension(:,:):: VPot
+	    integer:: nr
+	    real(dp), dimension(:):: weights
+	    complex(dp), dimension(:,:,:):: VRadMatEl !Radial matrix elements to compute
+	    type(smallinput):: indata
+	    integer:: n, m !Loop indices
+	    integer:: lambda, q, lambdaind
+	    integer:: numrfuncs
+	    complex(dp), dimension(:), allocatable:: f
+
+	    numrfuncs = size(radbasis(1,:))
+
+
+	    print*, "COMPUTE RADIAL MATRIX ELEMENTS"
+	    !$OMP PARALLEL DO DEFAULT(none) PRIVATE(m, lambda, q, lambdaind, f) &
+	    !$OMP& SHARED(VPot, weights, radbasis, indata, nr, numrfuncs, VRadMatEl)
+	    do n = 1, numrfuncs
+	       !print*, n
+	       allocate(f(nr))
+	       do m = 1, numrfuncs
+		  lambdaind = 1
+		  do lambda = 0, indata%lambdamax
+		     do q = -lambda, lambda
+	      	        f(:) = radbasis(:,n) * VPot(:,lambdaind) * radbasis(:,m)
+			VRadMatEl(lambdaind,n,m) = sum(f(:)*weights(:))
+			lambdaind = lambdaind + 1
+		     end do
+		  end do
+	       end do
+	       deallocate(f)
+	    end do
+	    !$OMP END PARALLEL DO
+
+	 end subroutine getRadMatEl
+
+
+
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: getVMatEl
 	 !Purpose: calculates the potential matrix elements using the precalculated 
@@ -265,42 +312,42 @@ module basismodule
 	 !Note: handles both real and complex spherical harmonics. Formulas are the 
 	 !      same for appropriately calculated VPot and angular integrals
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getVMatEl(radbasis, nr, weights, rad_ind_list, V, VPot, num_func, angular, indata)
+	 subroutine getVMatEl(rad_ind_list, V, VRadMatEl, num_func, angular, indata)
 	    implicit none
-	    real(dp), dimension(:,:):: radbasis
-	    real(dp), dimension(:):: weights
 	    integer, dimension(:):: rad_ind_list
-            complex(dp), dimension(:), allocatable:: f
-	    integer:: nr, num_func
-	    complex(dp), dimension(:,:):: VPot
+	    integer:: num_func
+	    complex(dp), dimension(:,:,:):: VRadMatEl
 	    complex(dp), dimension(:,:):: V
-	    type(input):: indata
+	    type(smallinput):: indata
 	    integer:: lambda, lambdaind, q
-	    integer:: ii,jj, rii, rjj
-	    complex(dp):: integral
+	    integer:: ii,jj, n, m
 	    real(dp), dimension(:,:,:):: angular
 
-	    allocate(f(nr))
 
+
+	    !!!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, n, m, lambdaind, lambda, q, integral) &
+	    !!!$OMP& SHARED(V, indata, num_func, rad_ind_list, nr, angular, pi)
 	    do ii=1, num_func
+	       !print*, ii
 	       do jj = 1, num_func
-		  rii = rad_ind_list(ii)
-		  rjj = rad_ind_list(jj)
+		  n = rad_ind_list(ii)
+		  m = rad_ind_list(jj)
 
 	          !Calculate V-matrix element for each lambda in the expansion
 		  lambdaind = 1
 		  do lambda = 0, indata%lambdamax
 		     do q = -lambda, lambda
-	      	        f(:) = radbasis(:,rjj) * VPot(:,lambdaind) * radbasis(:,rii)
-			integral = sum(f(:)*weights(:))
-
-			V(ii,jj) = V(ii,jj) + integral*angular(lambdaind,ii,jj)
+			V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
 			lambdaind = lambdaind + 1
 		     end do
 		  end do
+		  if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
+		     print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
+		     stop
+		  end if
 	       end do
 	    end do
-	    deallocate(f)
+	    !!!$OMP END PARALLEL DO
 
 	 end subroutine getVMatEl
 
@@ -314,7 +361,7 @@ module basismodule
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine getVMat(basis, rgrid,  nr, rad_ind_list, V, num_func, R, z, theta, phi,  angular, weights, indata)
              implicit none
-             type(input):: indata
+             type(smallinput):: indata
              integer:: nr, num_func
 	     integer, dimension(:):: rad_ind_list
              real(dp), dimension(:):: rgrid, weights
@@ -415,28 +462,28 @@ module basismodule
 	    real(dp):: l1, mu1, l2, mu2, l3, mu3 
 	    real(dp)::Yint
 
-	    if (mod(int(l1+l2+l3),2) .ne. 0) then
-	       res = 0.0_dp
-	    else
-	       if ((abs(mu2) .gt. 0.0_dp) .and. (int(mu3) .eq. 0)) then
-		  res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
-		        *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
-	       else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
-		  if (int(mu1) .eq. 0) then
-		     !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
-		     res = sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
-		  else 
-		     res = 0.0_dp
-		  end if
-	       else 
+	    !if (mod(int(l1+l2+l3),2) .ne. 0) then
+	    !   res = 0.0_dp
+	    !else
+	    !   if ((abs(mu2) .gt. 0.0_dp) .and. (int(mu3) .eq. 0)) then
+	    !      res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
+	    !            *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
+	    !   else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
+	    !      if (int(mu1) .eq. 0) then
+	    !         !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
+	    !         res = sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
+	    !      else 
+	    !         res = 0.0_dp
+	    !      end if
+	    !   else 
 		  !Formula for overlap of Xlm in terms of overlap of Ylm
 		  res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
 		        *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
 		        *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
 			*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
 			*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
-	       end if
-	    end if
+	    !   end if
+	    !end if
 
 	 end function Xint
 

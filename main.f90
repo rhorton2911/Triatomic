@@ -5,16 +5,20 @@
 !Author: Reese Horton
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 program H3Plus
+   use grid_radial
+   use sturmian_class
+   use input_data
    use basismodule
    use numbers
    implicit none
    
-   type(input):: indata
+   type(smallinput):: indata
    integer:: nr  !number of radial grid points
    integer:: ii, jj, kk
-   real(dp), dimension(:), allocatable:: rgrid, w
+   real(dp), dimension(:), allocatable:: radgrid, w
    real(dp), dimension(:,:), allocatable:: z, wf, basisatl !, B, H, KMat, 
    complex(dp), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
+   complex(dp), dimension(:,:,:), allocatable:: VRadMatEl
    !real(dp), dimension(:,:), allocatable:: VReal
    !complex(dp), dimension(:,:), allocatable:: VTemp
    real(dp), dimension(:,:), allocatable:: realH, realB
@@ -34,11 +38,30 @@ program H3Plus
    logical:: sorted
    real(dp):: E1, E2, temp
    real(dp):: Yint !declare a type for Yint function output
+   !Variables used to track program runtime
+   character(len=8):: date1, date2
+   character(len=10):: time1, time2
+   character(len=5):: zone1, zone2
+   integer, dimension(8):: values1, values2
+   integer:: hr1, hr2, sec1, sec2, mins1, mins2
+   integer:: hrs, mins, secs
+   !Sturmian data types
+   type(basis_sturmian_nr)::basis
+
+   !Intrinsic date and time subroutine
+   call date_and_time(date1,time1,zone1,values1)
 
    !Legacy .f77 subroutine. Sets up common (global :( ) variables used by function YLM in plql.f
    call FAKRED
    call DFSET
-  
+
+   !Read in MCCC input data file to set up necessary data_in structure
+   call readin( data_in, 10, 1)
+   !Initialise data type containing rgrid and integration weights, global variable ( ): ) in grid_radial module
+   call setgrids(grid)
+   !Initialise sturmian data types, requires input data type defined in the MCCC code.
+   call construct(basis, data_in)
+ 
    call readInput(indata)
    N = indata%N
    m_max = indata%mmax
@@ -67,10 +90,10 @@ program H3Plus
       nr = nr + 1
    end if
    
-   allocate(rgrid(nr))
-   rgrid(1) = indata%dr
+   allocate(radgrid(nr))
+   radgrid(1) = indata%dr
    do ii = 2, nr
-      rgrid(ii) = rgrid(ii-1) + indata%dr
+      radgrid(ii) = radgrid(ii-1) + indata%dr
    end do
    
    !Set up integration weights for computing V-matrix elements
@@ -91,7 +114,11 @@ program H3Plus
    VPot(:,:) = 0.0_dp
    allocate(VPotTemp(nr, num_lambda))
    do ii = 1, 3
-      call getVPotNuc(rgrid, nr, VPotTemp, R(ii), theta(ii), phi(ii), charge(ii), indata)
+      if (abs(charge(ii)) .gt. 0) then
+         call getVPotNuc(radgrid, nr, VPotTemp, R(ii), theta(ii), phi(ii), charge(ii), indata)
+      else 
+	 VPotTemp(:,:) = 0.0_dp
+      end if
       VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
    end do
    deallocate(VPotTemp)
@@ -167,7 +194,7 @@ program H3Plus
       kk = kk+N
    
       allocate(basisatl(nr, indata%N))
-      call createBasis(basisatl, l, alphal, indata%N, rgrid)
+      call createBasis(basisatl, l, alphal, indata%N, radgrid)
       radbasis(:,jj:kk) = basisatl(:,1:N)
       deallocate(basisatl)
    end do
@@ -176,7 +203,7 @@ program H3Plus
    open(70,file="basis.txt")
    write(70,*) "l, lmax,N: ", 0, lmax, N
    do jj=1, nr
-      write(70,*) rgrid(jj), (radbasis(jj,ii), ii=1, indata%N)
+      write(70,*) radgrid(jj), (radbasis(jj,ii), ii=1, indata%N)
    end do
    close(70)
    
@@ -271,7 +298,7 @@ program H3Plus
    !   do ii = 1, 3
    !      VTemp(:,:) = 0.0_dp
    !      !Calculates V-matrix elements without the factor of (-1)
-   !      call getVMat(radbasis, rgrid, nr, rad_ind_list, VTemp, num_func, &
+   !      call getVMat(radbasis, radgrid, nr, rad_ind_list, VTemp, num_func, &
    !	           R(ii), charge(ii), theta(ii), phi(ii), angular, weights, indata)
    !      V(:,:) = V(:,:) + VTemp(:,:)  
    !   end do
@@ -283,11 +310,18 @@ program H3Plus
    !   !deallocate(VReal)
    !end if 
 
+   !Precalculate radial matrix elements
+   allocate(VRadMatEl(num_lambda,rad_func,rad_func))
+   VRadMatEl(:,:,:) = 0.0_dp
+   call getRadMatEl(radbasis, VPot, nr, weights, VRadMatEl, indata)
+
    !If real spherical harnmonics are used, V matrix elements will have complex part zero.
-   call getVMatEl(radbasis, nr, weights, rad_ind_list, V, VPot, num_func, angular, indata)
+   call getVMatEl(rad_ind_list, V, VRadMatEl, num_func, angular, indata)
+   print*, "V Matrix Elements Computed"
    V(:,:) = (-1.0_dp)*V(:,:)
 
    deallocate(angular)
+   deallocate(VRadMatEl)
    H(:,:) = KMat(:,:) + V(:,:)
 
    !Call the rsg subroutine to solve the eigenvalue problem for the energies
@@ -299,11 +333,13 @@ program H3Plus
 
    !MODIFY: USE LAPACK ZHEGVX FUNCTION INSTEAD FOR HERMITIAN MATRICES RATHER THAN REAL SYMMETRIC
    !ALTERNATIVELY, pass only real part to rsg
+   print*, "CALL RSG"
    call rsg(num_func,num_func,realH,realB,w,1,z,ier)
    deallocate(realH,realB)
 
    !Include effect of nucleus-nucleus interaction term by simply adding zi*zj/R_ij to energies at the end.
    !Nuclear-nuclear matrix elements, being multiples of the overlap matrix, do not affect electronic wave functions.
+   print*, "ADD NUCLEAR INTERACTION ENERGY"
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
@@ -315,15 +351,17 @@ program H3Plus
          end if
       end do
    end do
+   print*, "NUCLEAR INTERACTION CALCULATED"
 
    open(80,file="energies.txt") 
    do ii = 1, num_func
-      print*, ii, w(ii)
+      !print*, ii, w(ii)
       write(80,*) ii, w(ii)
    end do
    close(80)
 
    !Need to divide by r and multiply by Ylm or Xlm to get full 3D wave function
+   print*, "CALCULATED WAVE FUNCTIONS"
    allocate(wf(nr,num_func))
    wf(:,:) = 0.0_dp
    do ii = 1, num_func
@@ -354,6 +392,7 @@ program H3Plus
    !   end do
    !end do
 
+   print*, "SORT ENERGIES"
    !Sort array of lowest energies for each symmetry, use bubble sort algorithm 
    !for simplicity
    sorted = .false.
@@ -372,6 +411,7 @@ program H3Plus
       end do
    end do
 
+   print*, "WRITE ENERGIES TO FILE"
    !Write energes of states to file
    open(80,file="energies.txt")
    write(80,*) "State Energies (Ha)"
@@ -385,7 +425,22 @@ program H3Plus
    call deconstructInput(indata)
 
    deallocate(energies)
-   deallocate(rgrid)
+   deallocate(radgrid)
    deallocate(weights)
+   call destruct_gridr(grid)
+
+   !Compute program runtime
+   print*, "COMPUTE TIME ELAPSED"
+   call date_and_time(date2,time2,zone2,values2)
+   read(time1(1:2), '(I20)') hr1
+   read(time2(1:2), '(I20)') hr2
+   read(time1(3:4), '(I20)') mins1
+   read(time2(3:4), '(I20)') mins2
+   read(time1(5:6), '(I20)') sec1
+   read(time2(5:6), '(I20)') sec2
+   hrs = abs(hr2 - hr1)
+   mins = abs(mins2 - mins1)
+   secs = abs(sec2 - sec1)
+   print*, "ELAPSED TIME (hrs, mins, secs): ", hrs, mins, secs
 
 end program H3Plus

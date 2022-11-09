@@ -1,0 +1,144 @@
+#MCCC-FN                                              #This line required at top to read in new data.in format
+
+#Input data file for the molecular convergent close-coupling code
+#You may want to turn off text wrapping to read the comments...
+
+SCATTERING_SYSTEM
+  TARGET                    : H2                      #Target molecule name (H2+ / H2 / HeH+) - this determines target charge parameters
+  INTERNUCLEAR_SEPARATION   : 1.455                   #Separation between nuclei (in bohr radii)
+  ORIGIN                    : 0.5                     #Position of spherical-coordinate origin (between 0 and 1, 0.5 = geometric centre of nuclei)
+  PROJECTILE                : ELECTRON                #Projectile name (ELECTRON / POSITRON)
+  ENERGY                    : 21.0 eV                 #Projectile incident energy (can specify eV or Hartree)
+  M_TOT                     : 0, 6                    #Total scattering system M. Specify single value or range Mstart, Mstop
+  PARITY                    : -1, 1                   # " " parity. Specify single value or range Pstart, Pstop. A value of 0 means parity it not used
+  NUMBER_ENTRANCE_STATES    : 1                       #Number of initial target states for scattering calculation
+  PROJECTILE_LMAX           : 6                       #Maximum l of the projectile partial-wave expansion
+END
+
+#Calculation modes: affect overall nature of calculation
+#For more misc options affecting numerical details of the calculation see CALCULATION_OPTIONS below
+CALCULATION_MODES
+  COORDINATE_SYSTEM         : SPHERICAL               #Can be SPHERICAL / SPHEROIDAL
+  SCATTERING                : ON                      #Set to ON for scattering calculations, OFF for structure only
+  COMBINE_POTL_FILES        : OFF                     #Combine potl files from two different partial-wave expansions
+  ANALYTICAL_BORN_ONLY      : OFF                     #Stop after Born ICS file is made
+END
+
+OUTPUT
+  OSCILLATOR_STRENGTHS      : ON                      #Calculate and output oscillator strengths. ON or OFF
+  DIPOLE_MOMENTS            : OFF                     #Dipole moments
+  DCS                       : OFF                     #Differential cross sections " "
+  TV_FILES                  : OFF                     #"TV" files containing T- and V-matrix elements in easy to read form
+  ONE_EL_BASIS_LIST         : OFF                     #The list of one-electron basis functions - useful for debugging
+  TWO_EL_CONFIG_LIST        : OFF                     #List of two-electron configurations per target symmetry - useful for debugging
+  CI_COEFFICIENTS           : OFF                     #List of configurations and corresponding CI coefficients for each two-electron state
+  VMATRIX                   : OFF                     #Print the fully off-shell V matrix per symmetry (also P01 matrix) - only in single-task calculation
+  KMATRIX                   : OFF                     #Print the half-on-shell K matrix (not applicable when complex T-matrix solver is used)
+  IONISATION_RUNNING_SUM    : OFF                     #Prints cumulative sum of ionisation cross section and other useful information
+END
+
+FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
+  LMAX                      : 8                       #Max orbital angular momentum, l=0,...,LMAX
+  BASIS_SIZE                : 60-l                    #Number of basis functions per l
+  EXPONENTIAL_FALLOFF       : 2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
+END
+ONE_ELECTRON_STATES                                   #Choose which one-electron states to keep
+  M_MAX                     : 1                       #Maximum orb. ang. mom. proj. of one-electron states to keep (specify a number or "ALL")
+  NST_POS_PAR               : 1, 0                    #Number of states (per M) for positive parity. 
+  NST_NEG_PAR               : 1, 0                    #Number of states (per M) for negative parity
+END                                                   #If the system does not have good parity then both pos/neg are summed to give the total number of states
+
+SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for two-electron diagonalisation (or maybe second one-electron diagonalisation) 
+  USE_SECOND_BASIS          : ON                      #If OFF then the one-electron states kept from the first diagonalisation form the basis for the second diagonalisation
+  LMAX                      : 3                       #Max l of Laguerre functions
+  BASIS_SIZE                : 12-l                    #Number of basis functions per l
+  EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
+  
+  INSERT_ONE_EL_STATES      : 2                       #Number of one-electron states from first diagonalisation to insert in second basis
+
+  INSERT_NATURAL_ORBITALS   : 0                       #Number of natural orbitals to insert in second basis (specify a number or "ALL")
+  ONLY_NATURAL_ORBITALS     : OFF                     #Perform second diagonalisation only using natural orbitals (ON or OFF)
+  NATORB_GS_M               : 0                       #M of ground state used to generate natural orbitals
+  NATORB_GS_PAR             : 1                       #Parity "  "
+  NATORB_GS_SPIN            : 0                       #Spin   "  "
+
+  USE_SUB_BASIS             : ON                      #Define an additional basis which replaces Laguerre functions from main second basis
+  SUB_LMAX                  : 3                       #Lmax of the sub basis
+  SUB_BASIS_SIZE            : 3, 2, 3, 1              #Number of funcions (per l) in the sub basis
+  SUB_BASIS_EXP_FALLOFF     : 2.0, 2.0, 2.0, 2.0      #Exponential fallofs per l (spherical) or per m (spheroidal) for the sub basis
+END
+
+TWO_ELECTRON_CONFIGURATIONS                           #Choose how the two-electron configurations are built from the one-electron basis
+  L_ION_CORE                : 0                       #Max l to build frozen-core configurations on top of
+  N_ION_CORE                : 1                       #Number of functions per l to build frozen-core configurations on top of
+  M12MAX                    : 3                       #States with M greater than this are treated with frozen-core model
+  NKIN                      : 3, 2, 3, 1, 0           #Functions used to generate correlation configurations (specify N per l)
+END
+
+TWO_ELECTRON_STATES
+  M_MAX                     : 1                       #Maximum orb. ang. mom. proj. of two-electron states to keep (specify a number or "ALL")
+  NST_POS_PAR_SINGLET       : 2, 0                    #Number of states (per M) for positive parity, spin=0
+  NST_NEG_PAR_SINGLET       : 1, 1                    #Number of states (per M) for negative parity, spin=0
+  NST_POS_PAR_TRIPLET       : 1, 0                    #Number of states (per M) for positive parity, spin=1
+  NST_NEG_PAR_TRIPLET       : 1, 1                    #Number of states (per M) for negative parity, spin=1
+END
+
+RADIAL_GRID                                           #Standard radial grid parameters
+  RMAX                      : 160.0                    
+  QMAX                      : 20.0                     
+  NDOUBLE                   : 8
+  NPDBL                     : 32
+  NPWAVE                    : 6
+  FORMCUT                   : 1E-8
+  REGCUT                    : 1E-10
+  EXPCUT                    : 1E-10
+END
+
+KGRID
+  #A B  C  D     E  F    G  H     I  J
+  *,0,  30,0.85, 30,3.5, 10,4.0, -10,0.1
+
+  #A: Projectile L for this kgrid line. Use a "*" to fill gaps rather than repeating lines
+  #B: Max number of projectile bound states
+  #C: Number of points in first kgrid interval
+  #D: Boundary between first and second intervals
+  #E: Number of points in second interval
+  #F: Boundary between second and third intervals
+  #G: Number of points in third interval
+  #G: Fall-off power for third interval
+  #I: Number of extra points around singularity (negative or zero = disabled)
+  #J: Width around singularity for extra points
+END
+
+CALCULATION_OPTIONS
+  LTMAX                     : 20                      #Maximum l in expansion of nuclear potential
+  BORN_COMPLETION           : ON                      #Calculate analytical Born cross sections and use analytical Born completion (ABC)
+  THETA                     : 0.0                     #Value of theta for the "theta trick" to resolve non-uniqueness. THETA=0 means it will not be used
+  EXCHANGE                  : ON                      #Include (ON) or don't include (OFF) exchange
+  UBA                       : OFF                     #Perform calculations using the Unitarised Born Approximation (UBA) (ON or OFF)
+  PWBORN                    : OFF                     #Partial-wave born approximation
+  REARRANGE                 : ON                      #Use the "rearrange" subroutine on both one- and two-electron states (just keep this ON)
+  MPI_LOAD_BALANCING        : OFF                     #Liam's improved MPI load balancing
+  DISTORTING_POTENTIAL      : OFF                     #Use a distorting potential - not implemented for spheroidal code
+  DISTPOT_LMAX              : 0                       #Max projectile L to consider distorting potential
+  PROJ_BOUNDSTATE_NMAX      : 10                      #Basis size for generating projectile bound states (in distorting and/or Coulomb potential)
+  PROJ_BOUNDSTATE_ALPHA     : 1.0                     #Exponential falloff for projectile bound-state calculation
+  POSITRONIUM_FORMATION     : OFF                     #ON for two-centre positron scattering calculation. OFF for single-centre
+  OPTICAL_POTENTIAL         : OFF                     #Calculate and utilise an optical potential
+  WEAK_COUPLING             : OFF                     #Use weak-coupling approximation (no coupling between states in Q-space)
+  P_SPACE                   : ALL                     #States in P space for optical potential 
+                                                      #Also, if weak coupling is ON but optical potential is OFF then the weak-coupling approximation is
+                                                      #to all states not in P space
+  CORE_POLARISABILITY       : 0.0
+  CORE_POTENTIAL_CUTOFF     : 0.1
+END
+
+PSEUDO_POTENTIAL
+  USE_PSEUDO_POTENTIAL      : ON
+  B0                        : 5.786
+  BETA0                     : 1.276
+  B1                        : -1.065
+  BETA1                     : 1.607
+  B2                        : 0.0
+  BETA2                     : 0.0
+END

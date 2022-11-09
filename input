@@ -1,4 +1,4 @@
-10     !N (Basis size)
+20     !N (Basis size)
 1     !Number of exponential fallof parameters in the next line
 2.0 2.0 0.25 0.1   !alpha (exponential falloff parameter)
 3     !Specified lmax of the basis set
