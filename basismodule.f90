@@ -130,11 +130,12 @@ module basismodule
 	 !Purpose: uses the recursion relations for the basis
 	 !         functions to construct the basis set
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine createBasis(basis, lin, alphain, N, rgrid)
+	 subroutine createBasis(basis, lin, alphain, N, ingrid)
 			use numbers
+			use grid_radial
 			implicit none
-      real(dp), dimension(:,:):: basis
-			real(dp), dimension(:):: rgrid
+                        real(dp), dimension(:,:):: basis
+			type(rgrid):: ingrid
 			integer::l, lin
 			integer:: ii, N
 			real(dp):: alpha, alphain
@@ -145,14 +146,14 @@ module basismodule
 			alpha = alphain
 
 			!First construct without normalisation constant
-			basis(:,1) = ((2.0_dp)*alpha*rgrid(:))**(l+1)*exp(-alpha*rgrid(:))
+			basis(:,1) = ((2.0_dp)*alpha*ingrid%gridr(:))**(l+1)*exp(-alpha*ingrid%gridr(:))
 			if (N .gt. 1) then
-			   basis(:,2) = (2.0_dp)*(real(l)+1.0_dp-alpha*rgrid(:))*basis(:,1)
+			   basis(:,2) = (2.0_dp)*(real(l)+1.0_dp-alpha*ingrid%gridr(:))*basis(:,1)
 			end if
 
 			!Next, use the recursion relations to fill out the rest of the basis
 			do ii = 3, N
-				 basis(:,ii) = (2.0_dp*(dble(ii-1+l)-alpha*rgrid(:))*basis(:,ii-1) - &
+				 basis(:,ii) = (2.0_dp*(dble(ii-1+l)-alpha*ingrid%gridr(:))*basis(:,ii-1) - &
 				 dble(ii+2*l-1)*basis(:,ii-2))/dble(ii-1)
 			end do 
 
@@ -227,11 +228,12 @@ module basismodule
 	 !Purpose: evaluates the components in the expansion of the nuclear potential in 
 	 !         real or complex spherical harmonics for use in the structure calculation.
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getVPotNuc(rgrid, nr, VPotTemp, R, theta, phi, z, indata)
-	    !use grid_radial
+	 subroutine getVPotNuc(ingrid, VPotTemp, R, theta, phi, z, indata)
+	    use grid_radial
 	    implicit none
-	    real(dp), allocatable, dimension(:):: rgrid
-	    integer:: nr, z
+	    type(rgrid):: ingrid
+	    !real(dp), allocatable, dimension(:):: rgrid
+	    integer:: z
 	    complex(dp), allocatable, dimension(:,:):: VPotTemp
 	    real(dp):: R, theta, phi
 	    type(smallinput):: indata
@@ -239,24 +241,78 @@ module basismodule
 	    real(dp), allocatable, dimension(:):: f
 	    complex(dp):: Ylm
 
-	    allocate(f(nr))
 
-	    lambdaind = 1
-	    do lambda= 0, indata%lambdamax
-	       f(:) = dble(z)*(min(rgrid(:),R)**lambda)/(max(rgrid(:),R)**(lambda+1))
+	    if (abs(z) .gt. 0.0_dp) then
+	       allocate(f(ingrid%nr))
 
-	       do q = -lambda, lambda 
-		  if (indata%harmop .eq. 1) then
-		     VPotTemp(:,lambdaind) = (4.0_dp*pi/(2.0_dp*dble(lambda) + 1.0_dp))*f(:)*Xlm(lambda,q,theta,phi)
-		  else if (indata%harmop .eq. 0) then
-		     VPotTemp(:,lambdaind) = (4.0_dp*pi/(2.0_dp*dble(lambda) + 1.0_dp))*f(:)*YLM(lambda,q,theta,phi)
-	          end if
-		  lambdaind = lambdaind + 1
+	       lambdaind = 1
+	       do lambda= 0, indata%lambdamax
+	          f(:) = dble(z)*(min(ingrid%gridr(:),R)**lambda)/(max(ingrid%gridr(:),R)**(lambda+1))
+
+	          do q = -lambda, lambda 
+	             if (indata%harmop .eq. 1) then
+	                VPotTemp(:,lambdaind) = (4.0_dp*pi/(2.0_dp*dble(lambda) + 1.0_dp))*f(:)*XLM(lambda,q,theta,phi)
+	             else if (indata%harmop .eq. 0) then
+	                VPotTemp(:,lambdaind) = (4.0_dp*pi/(2.0_dp*dble(lambda) + 1.0_dp))*f(:)*YLM(lambda,q,theta,phi)
+	             end if
+	             lambdaind = lambdaind + 1
+	          end do
 	       end do
-	    end do
-	    deallocate(f)
+	       deallocate(f)
+	    else
+	       VPotTemp(:,:) = 0.0_dp
+	    end if
+	    !Account for difference in charge of electron and proton
+	    VPotTemp(:,:) = (-1.0_dp)*VPotTemp(:,:) 
 
 	 end subroutine getVPotNuc
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getAngular
+	 !Purpose: computes overlap of angular part of basis functions with nuclear 
+	 !         potential. Called to precalculate these matrix elements before their 
+	 !         use in computing potential matrix elements
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getAngular(num_func, angular, l_list, m_List, indata)
+	    implicit none
+	    type(smallinput):: indata
+	    real(dp), dimension(:,:,:):: angular
+	    integer:: num_func
+	    integer, dimension(:):: l_list, m_list
+	    integer:: lambdaind, lambda, q
+	    integer:: ii, jj
+	    real(dp):: Yint
+	    integer:: li, mi, lj, mj
+
+            !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
+            do ii = 1, num_func
+	       !print*, ii
+               do jj = 1, num_func
+                  li = l_list(ii)
+                  mi = m_list(ii)
+                  lj = l_list(jj)
+                  mj = m_list(jj)
+                  lambdaind=1
+                  do lambda = 0, indata%lambdamax
+                     do q = -lambda, lambda
+                        if (indata%harmop .eq. 0) then
+                           angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
+                 	     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+                        else if (indata%harmop .eq. 1) then
+                 	  !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
+                           angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+                        end if
+
+                        !print*, li, mi, lambda, q, lj, mj
+                        !print*, angular(lambdaind,ii,jj)
+                        lambdaind = lambdaind + 1 
+                     end do
+                  end do
+               end do
+            end do
+
+	 end subroutine getAngular
 
 
 
@@ -265,34 +321,41 @@ module basismodule
 	 !Purpose: computes the radial matrix elements of the potential VPot, stores 
 	 !         inside array VRadMatEl, assumed to be allocated outside of this function
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getRadMatEl(radbasis,VPot, nr, weights, VRadMatEl, indata)
+	 subroutine getRadMatEl(basis, VPot,ingrid, VRadMatEl, indata)
+	    use grid_radial
+	    use sturmian_class
 	    implicit none
-	    real(dp), dimension(:,:)::radbasis
+	    type(rgrid)::ingrid
 	    complex(dp), dimension(:,:):: VPot
-	    integer:: nr
-	    real(dp), dimension(:):: weights
 	    complex(dp), dimension(:,:,:):: VRadMatEl !Radial matrix elements to compute
 	    type(smallinput):: indata
 	    integer:: n, m !Loop indices
 	    integer:: lambda, q, lambdaind
 	    integer:: numrfuncs
 	    complex(dp), dimension(:), allocatable:: f
+	    type(basis_sturmian_nr):: basis
+	    integer:: nr
+	    integer:: i1, i2
 
-	    numrfuncs = size(radbasis(1,:))
+	    numrfuncs = basis%n
+	    nr = ingrid%nr
 
 
 	    print*, "COMPUTE RADIAL MATRIX ELEMENTS"
-	    !$OMP PARALLEL DO DEFAULT(none) PRIVATE(m, lambda, q, lambdaind, f) &
-	    !$OMP& SHARED(VPot, weights, radbasis, indata, nr, numrfuncs, VRadMatEl)
+	    !$OMP PARALLEL DO DEFAULT(none) PRIVATE(m, lambda, q, lambdaind, f, i1, i2) &
+	    !$OMP& SHARED(VPot, ingrid, basis, indata, nr, numrfuncs, VRadMatEl)
 	    do n = 1, numrfuncs
 	       !print*, n
 	       allocate(f(nr))
+	       f(:) = 0.0_dp
 	       do m = 1, numrfuncs
+		  i1 = max(basis%b(n)%minf, basis%b(m)%minf)
+		  i2 = min(basis%b(n)%maxf, basis%b(m)%maxf)
 		  lambdaind = 1
 		  do lambda = 0, indata%lambdamax
 		     do q = -lambda, lambda
-	      	        f(:) = radbasis(:,n) * VPot(:,lambdaind) * radbasis(:,m)
-			VRadMatEl(lambdaind,n,m) = sum(f(:)*weights(:))
+	      	        f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
+			VRadMatEl(lambdaind,n,m) = sum(f(i1:i2)*ingrid%weight(i1:i2))
 			lambdaind = lambdaind + 1
 		     end do
 		  end do
@@ -312,9 +375,9 @@ module basismodule
 	 !Note: handles both real and complex spherical harmonics. Formulas are the 
 	 !      same for appropriately calculated VPot and angular integrals
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getVMatEl(rad_ind_list, V, VRadMatEl, num_func, angular, indata)
+	 subroutine getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata)
 	    implicit none
-	    integer, dimension(:):: rad_ind_list
+	    integer, dimension(:):: sturm_ind_list
 	    integer:: num_func
 	    complex(dp), dimension(:,:,:):: VRadMatEl
 	    complex(dp), dimension(:,:):: V
@@ -330,8 +393,8 @@ module basismodule
 	    do ii=1, num_func
 	       !print*, ii
 	       do jj = 1, num_func
-		  n = rad_ind_list(ii)
-		  m = rad_ind_list(jj)
+		  n = sturm_ind_list(ii)
+		  m = sturm_ind_list(jj)
 
 	          !Calculate V-matrix element for each lambda in the expansion
 		  lambdaind = 1
@@ -462,28 +525,28 @@ module basismodule
 	    real(dp):: l1, mu1, l2, mu2, l3, mu3 
 	    real(dp)::Yint
 
-	    !if (mod(int(l1+l2+l3),2) .ne. 0) then
-	    !   res = 0.0_dp
-	    !else
-	    !   if ((abs(mu2) .gt. 0.0_dp) .and. (int(mu3) .eq. 0)) then
-	    !      res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
-	    !            *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
-	    !   else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
-	    !      if (int(mu1) .eq. 0) then
-	    !         !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
-	    !         res = sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
-	    !      else 
-	    !         res = 0.0_dp
-	    !      end if
-	    !   else 
+	    if (mod(int(l1+l2+l3),2) .ne. 0) then
+	       res = 0.0_dp
+	    else
+	       if ((abs(mu2) .gt. 0.0_dp) .and. (int(mu3) .eq. 0)) then
+	          res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
+	                *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
+	       else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
+	          if (int(mu1) .eq. 0) then
+	             !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
+	             res = sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
+	          else 
+	             res = 0.0_dp
+	          end if
+	       else 
 		  !Formula for overlap of Xlm in terms of overlap of Ylm
 		  res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
 		        *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
 		        *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
 			*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
 			*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
-	    !   end if
-	    !end if
+	       end if
+	    end if
 
 	 end function Xint
 

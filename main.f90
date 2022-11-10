@@ -7,7 +7,7 @@
 program H3Plus
    use grid_radial
    use sturmian_class
-   use input_data
+   use input_data !Defines global data_in variable
    use basismodule
    use numbers
    implicit none
@@ -15,29 +15,27 @@ program H3Plus
    type(smallinput):: indata
    integer:: nr  !number of radial grid points
    integer:: ii, jj, kk
-   real(dp), dimension(:), allocatable:: radgrid, w
-   real(dp), dimension(:,:), allocatable:: z, wf, basisatl !, B, H, KMat, 
+   real(dp), dimension(:), allocatable:: w
+   real(dp), dimension(:,:), allocatable:: z, wf !, B, H, KMat, 
    complex(dp), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
    complex(dp), dimension(:,:,:), allocatable:: VRadMatEl
    !real(dp), dimension(:,:), allocatable:: VReal
    !complex(dp), dimension(:,:), allocatable:: VTemp
    real(dp), dimension(:,:), allocatable:: realH, realB
-   real(dp), dimension(:,:), allocatable:: radbasis
    real(dp), dimension(:,:,:), allocatable:: angular
-   integer, dimension(:), allocatable:: k_list, l_list, m_list, rad_ind_list
-   real(dp), dimension(:), allocatable:: weights, energies
+   integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list
+   real(dp), dimension(:), allocatable::  energies
    integer:: num_func, l, m, k, rad_func
-   integer:: li, mi, lambda, q, lj, mj, num_lambda, lambdaind
+   integer:: num_lambda
    integer:: lblocksize
-   integer:: lmax, N, m_max
+   integer:: N, m_max !,lmax
    integer:: nstates, ier
    real(dp):: alphal, mu
    real(dp), dimension(3):: R, theta, phi !Coordinates and charge of each nucleus
    integer, dimension(3):: charge
    real(dp):: Rij, cosij
-   logical:: sorted
+   logical:: sorted, found
    real(dp):: E1, E2, temp
-   real(dp):: Yint !declare a type for Yint function output
    !Variables used to track program runtime
    character(len=8):: date1, date2
    character(len=10):: time1, time2
@@ -47,6 +45,7 @@ program H3Plus
    integer:: hrs, mins, secs
    !Sturmian data types
    type(basis_sturmian_nr)::basis
+   integer:: i1, i2
 
    !Intrinsic date and time subroutine
    call date_and_time(date1,time1,zone1,values1)
@@ -65,7 +64,7 @@ program H3Plus
    call readInput(indata)
    N = indata%N
    m_max = indata%mmax
-   lmax = indata%l
+   !lmax = indata%l
    !Specify charge of each nucleus
    charge(1) = indata%charge(1)
    charge(2) = indata%charge(2)
@@ -83,42 +82,17 @@ program H3Plus
    phi(1) = indata%phi(1)
    phi(2) = indata%phi(2)
    phi(3) = indata%phi(3)
-  
-   !Set up the radial grid over which to define the basis functions
-   nr = int(indata%rmax/indata%dr)
-   if (mod(nr,2) .eq. 0) then
-      nr = nr + 1
-   end if
-   
-   allocate(radgrid(nr))
-   radgrid(1) = indata%dr
-   do ii = 2, nr
-      radgrid(ii) = radgrid(ii-1) + indata%dr
-   end do
-   
-   !Set up integration weights for computing V-matrix elements
-   allocate(weights(nr))
-   weights(1) = 1.0_dp
-   do ii = 2, nr-1
-      weights(ii) = 2.0_dp + 2.0*mod(ii+1,2)
-   end do
-   weights(nr) = 1.0_dp
-   weights(:) = weights(:)*indata%dr / 3.0_dp 
 
-   !Set up expansion of potential
-   num_lambda = 0
-   do ii = 0, indata%lambdamax
-      num_lambda = num_lambda +  2*ii + 1 
-   end do
+   nr = grid%nr
+
+   !Set up expansion of potential, use formula: SUM_l=0^l=L (2l+1) = (L+1)^2
+   num_lambda = (indata%lambdamax+1)**2
+
    allocate(VPot(nr,num_lambda))
    VPot(:,:) = 0.0_dp
    allocate(VPotTemp(nr, num_lambda))
    do ii = 1, 3
-      if (abs(charge(ii)) .gt. 0) then
-         call getVPotNuc(radgrid, nr, VPotTemp, R(ii), theta(ii), phi(ii), charge(ii), indata)
-      else 
-	 VPotTemp(:,:) = 0.0_dp
-      end if
+      call getVPotNuc(grid, VPotTemp, R(ii), theta(ii), phi(ii), charge(ii), indata)
       VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
    end do
    deallocate(VPotTemp)
@@ -127,10 +101,10 @@ program H3Plus
    !Instead, the clamped nuclei electronic V-matrix is diagonal in different irreducible representations of a 
    !given point group. Since we are not currently using a symmetry adapted basis, we can only loop over l
    num_func=0
-   do l = 0, lmax
+   do l = data_in%labot, data_in%latop
+      !Now need to loop over l and m, m is no longer conserved.
       do m = -l, l
-	 !Now need to loop over l and m, m is no longer conserved.
-         num_func = num_func + indata%N
+         num_func = num_func + data_in%nps(l) !Array nps indexed from zero
       end do
    end do
    if (num_func .eq. 0) then
@@ -148,14 +122,14 @@ program H3Plus
    !Define arrays to keep track of k,l,m values for each index
    !Indexing scheme: specify (l,m), then k goes from 1 to N for each such pair 
    !i.e l -> m -> k_lm
-   allocate(k_list(num_func), l_list(num_func), m_list(num_func), rad_ind_list(num_func))
+   allocate(k_list(num_func), l_list(num_func), m_list(num_func), sturm_ind_list(num_func))
    ii = 0
    rad_func = 0
    kk = 0
-   do l = 0, lmax
+   do l = data_in%labot, data_in%latop
       do m = -l, l
 	 jj  = kk 
-         do k = 1, N
+         do k = 1, data_in%nps(l)
             ii = ii + 1
             k_list(ii) = k
             l_list(ii) = l
@@ -166,46 +140,60 @@ program H3Plus
 	    !functions phi_{kl} are used for each value of m from -l to l. Introduce an array to track which radial basis 
 	    !function belongs to which index.
 	    jj = jj + 1
-	    rad_ind_list(ii) = jj
+
+	    found = .false.
+	    n = 1
+	    do while (.not. found)
+	       if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
+		  found = .true.
+	       else
+		  n = n +1
+	       end if
+	    end do
+
+	    sturm_ind_list(ii) = n
 	    !print*, jj
          end do
       end do
       !The radial part of the basis is identical for any given (l,k) pair, regardless of m
-      do k = 1, N
+      do k = 1, data_in%nps(l)
          rad_func = rad_func + 1
       end do
-      kk = kk + N
-   end do
-   
-   !Construct a basis with the given symmetry properties using the l_list and 
-   !k_list variables
-   allocate(radbasis(nr,rad_func))
-   l=-1
-   kk=0
-   jj=0
-   do ii=1,  num_func
-      if (l .eq. l_list(ii)) then
-      	 cycle
-      end if
-      l = l_list(ii)
-      !In principle allows to specify a different alpha for each l
-      alphal = indata%alpha(l+1)
-      jj=kk+1
-      kk = kk+N
-   
-      allocate(basisatl(nr, indata%N))
-      call createBasis(basisatl, l, alphal, indata%N, radgrid)
-      radbasis(:,jj:kk) = basisatl(:,1:N)
-      deallocate(basisatl)
-   end do
 
-   !Write some of the basis functions to file for plotting
-   open(70,file="basis.txt")
-   write(70,*) "l, lmax,N: ", 0, lmax, N
-   do jj=1, nr
-      write(70,*) radgrid(jj), (radbasis(jj,ii), ii=1, indata%N)
+      kk = kk + data_in%nps(l)
    end do
-   close(70)
+   
+   !!Construct a basis with the given symmetry properties using the l_list and 
+   !!k_list variables
+   !allocate(radbasis(nr,rad_func))
+   !l=-1
+   !kk=0
+   !jj=0
+   !do ii=1,  num_func
+   !   if (l .eq. l_list(ii)) then
+   !   	 cycle
+   !   end if
+   !   l = l_list(ii)
+   !   !In principle aliglows to specify a different alpha for each l
+   !   alphal = indata%alpha(l+1)
+   !   jj=kk+1
+   !   kk = kk+N
+   !
+   !   allocate(basisatl(nr, indata%N))
+   !   call createBasis(basisatl, l, alphal, indata%N, grid)
+   !   radbasis(:,jj:kk) = basisatl(:,1:N)
+   !   deallocate(basisatl)
+   !end do
+
+   !!Write some of the basis functions to file for plotting
+   !open(70,file="basis.txt")
+   !write(70,*) "l, lmax,N: ", 2, lmax, N
+   !if (lmax .ge. 2) then
+   !   do jj=1, nr
+   !      write(70,*) grid%gridr(jj), (radbasis(jj,ii), ii=2*N+1, 3*N)
+   !   end do
+   !end if
+   !close(70)
    
    !Calculate the matrix elements, iterating through l values
    allocate(H(num_func,num_func),B(num_func,num_func),V(num_func,num_func))
@@ -237,7 +225,7 @@ program H3Plus
    KMat(:,:) = 0.0_dp
    do ii = 1, num_func
       l = l_list(ii)
-      alphal=indata%alpha(l+1)
+      alphal=data_in%alpha(l)
       KMat(ii,ii) = (alphal**2)
    end do
 
@@ -250,9 +238,9 @@ program H3Plus
       	 cycle
       end if
       l = l_list(ii)
-      alphal = indata%alpha(l+1)
+      alphal = data_in%alpha(l)
       !Assuming we choose the same range of k for each l
-      lblocksize = N*(2*l+1)
+      lblocksize = data_in%nps(l)*(2*l+1)
       jj=kk+1
       kk = kk + lblocksize
       KMat(jj:kk,jj:kk) = KMat(jj:kk,jj:kk) - 0.5_dp*(alphal**2)*B(jj:kk,jj:kk)
@@ -260,65 +248,46 @@ program H3Plus
    mu = 1.0_dp
    KMat(:,:) = KMat(:,:)/mu
 
-   !Precalculate angular integrals appearing in V-matrix elements
-   num_lambda = 0
-   do lambda = 0, indata%lambdamax
-      num_lambda = num_lambda + 2*lambda + 1
-   end do
+   print*, "GET ANGULAR MATRIX ELEMENTS"
+   !!Precalculate angular integrals appearing in V-matrix elements
    allocate(angular(num_lambda,num_func,num_func))
-   !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
-   do ii = 1, num_func
-      do jj = 1, num_func
-	 li = l_list(ii)
-	 mi = m_list(ii)
-	 lj = l_list(jj)
-	 mj = m_list(jj)
-	 lambdaind=1
-         do lambda = 0, indata%lambdamax
-	    do q = -lambda, lambda
-	       if (indata%harmop .eq. 0) then
-	          angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
-		     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
-	       else if (indata%harmop .eq. 1) then
-		  !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
-	          angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
-	       end if
+   call getAngular(num_func, angular, l_list, m_list, indata)
+   !!Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
+   !do ii = 1, num_func
+   !   do jj = 1, num_func
+   !      li = l_list(ii)
+   !      mi = m_list(ii)
+   !      lj = l_list(jj)
+   !      mj = m_list(jj)
+   !      lambdaind=1
+   !      do lambda = 0, indata%lambdamax
+   !         do q = -lambda, lambda
+   !            if (indata%harmop .eq. 0) then
+   !               angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
+   !     	     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+   !            else if (indata%harmop .eq. 1) then
+   !     	  !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
+   !               angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+   !            end if
 
-	       !print*, li, mi, lambda, q, lj, mj
-	       !print*, angular(lambdaind,ii,jj)
-	       lambdaind = lambdaind + 1 
-	    end do
-	 end do
-      end do
-   end do
-	
-   !Calculate V matrix elements
-   !if (indata%harmop .eq. 0) then
-   !   allocate(VTemp(num_func,num_func))
-   !   do ii = 1, 3
-   !      VTemp(:,:) = 0.0_dp
-   !      !Calculates V-matrix elements without the factor of (-1)
-   !      call getVMat(radbasis, radgrid, nr, rad_ind_list, VTemp, num_func, &
-   !	           R(ii), charge(ii), theta(ii), phi(ii), angular, weights, indata)
-   !      V(:,:) = V(:,:) + VTemp(:,:)  
+   !            !print*, li, mi, lambda, q, lj, mj
+   !            !print*, angular(lambdaind,ii,jj)
+   !            lambdaind = lambdaind + 1 
+   !         end do
+   !      end do
    !   end do
-   !   deallocate(VTemp)
-   !else if (indata%harmop .eq. 1) then
-   !   !allocate(VReal(num_func,num_func))
-   !   !call getVMatReal(radbasis, nr, weights, rad_ind_list, VReal, VPot, num_func, angular, indata)
-   !   !V(:,:) = VReal(:,:)
-   !   !deallocate(VReal)
-   !end if 
+   !end do
 
    !Precalculate radial matrix elements
    allocate(VRadMatEl(num_lambda,rad_func,rad_func))
    VRadMatEl(:,:,:) = 0.0_dp
-   call getRadMatEl(radbasis, VPot, nr, weights, VRadMatEl, indata)
+   print*, "GET RADIAL MATRIX ELEMENTS"
+   call getRadMatEl(basis, VPot, grid, VRadMatEl, indata)
 
-   !If real spherical harnmonics are used, V matrix elements will have complex part zero.
-   call getVMatEl(rad_ind_list, V, VRadMatEl, num_func, angular, indata)
+   !If real spherical harmonics are used, V matrix elements will have complex part zero.
+   call getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata)
    print*, "V Matrix Elements Computed"
-   V(:,:) = (-1.0_dp)*V(:,:)
+   !V(:,:) = (-1.0_dp)*V(:,:)
 
    deallocate(angular)
    deallocate(VRadMatEl)
@@ -366,22 +335,39 @@ program H3Plus
    wf(:,:) = 0.0_dp
    do ii = 1, num_func
     	do jj=1, num_func
-           kk = rad_ind_list(jj)
+	   if (abs(z(ii,jj)) .lt. 1E-20 ) then
+	      z(ii,jj) = 0.0_dp
+	   end if
+           kk = sturm_ind_list(jj)
            !MODIFY TO BE A FUNCTION OF (r,theta,phi)
 	   !if (indata%harmop .eq. 0) then
 	   !else if (indata%harmop .eq. 1) then
 	   !end if
-    	   wf(:,ii) = wf(:,ii) +  z(jj,ii)*radbasis(:,kk)!*YLM
+	   !print*, ii, jj, kk, l_list(jj), k_list(jj), m_list(jj)
+           !if (ii .eq. 430) then
+           !   print*, "BASIS: ", radbasis(:,kk)
+           !   print*, z(jj,ii)
+           !   print*, tiny(w(1))
+           !   print*, "TEST"
+           !   print*, z(jj,ii)*radbasis(:,kk)
+           !   print*, "AFTER TEST"
+           !end if
+
+	   !Basis function set to zero outside of range of r values indexed by i1, i2
+	   i1 = basis%b(kk)%minf
+	   i2 = basis%b(kk)%maxf
+           
+    	   wf(i1:i2,ii) = wf(i1:i2,ii) +  z(jj,ii)*basis%b(kk)%f(i1:i2)!*YLM
     	end do
    end do
+   print*, "WAVE FUNCTIONS CALCULATED"
 
    nstates=num_func
    energies(:) = w(:)
 
-   deallocate(k_list, l_list, m_list, rad_ind_list)
+   deallocate(k_list, l_list, m_list)
    deallocate(H,B,V,KMat)
    deallocate(w,z,wf)
-   deallocate(radbasis)
 
    !Print out the first energy in each symmetry
    !ii= 1
@@ -425,8 +411,6 @@ program H3Plus
    call deconstructInput(indata)
 
    deallocate(energies)
-   deallocate(radgrid)
-   deallocate(weights)
    call destruct_gridr(grid)
 
    !Compute program runtime
@@ -439,8 +423,21 @@ program H3Plus
    read(time1(5:6), '(I20)') sec1
    read(time2(5:6), '(I20)') sec2
    hrs = abs(hr2 - hr1)
+   if (hrs .gt. 0) then
+      hrs = hrs -1
+   end if
    mins = abs(mins2 - mins1)
-   secs = abs(sec2 - sec1)
+   if (mins .gt. 0) then
+      mins = mins -1
+      if (60+sec2-sec1 .ge. 60) then
+         secs = sec2 - sec1
+	 mins = mins + 1
+      else if (60+sec2-sec1 .lt. 60) then
+	 secs = 60+sec2-sec1
+      end if
+   else
+      secs = sec2 - sec1
+   end if
    print*, "ELAPSED TIME (hrs, mins, secs): ", hrs, mins, secs
 
 end program H3Plus

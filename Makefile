@@ -45,18 +45,6 @@ grid_radial.o: gridr.f90 Legendre.f90
 Legendre.o: Legendre.f90
 	$(FC) $(CFLAGS) -w -c Legendre.f90
 
-#Associated_Legendre_Functions.o: Associated_Legendre_Functions.f90
-	#$(FC) -c Legendre.f90 -o Associated_Legendre_Functions.o
-
-#Matrix_Print.o: Legendre.f90
-#	$(FC) -c Legendre.f90 -o Matrix_Print.o
-
-#Data_Module.o: Legendre.f90
-	#$(FC) -c Legendre.f90 -o Data_Module.o
-
-#Special_Functions.o: Legendre.f90
-#	$(FC) $(CFLAGS) -c Legendre.f90 -o Special_Functions.o
-
 target_data.o: target_data.f90 numbers.f90
 	$(FC) $(CFLAGS) -c target_data.f90
 

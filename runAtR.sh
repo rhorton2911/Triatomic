@@ -11,6 +11,7 @@ do
    RNuc=$(echo "scale=2; ${R}/2.0" | bc | awk '{printf "%.2f", $0}')
 
    sed s/RRR/${RNuc}/g input > R=${R}/input
+   cp data.in ./R=${R}/
 
    cd R=${R}
       export OMP_NUM_THREADS=10
