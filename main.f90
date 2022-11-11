@@ -265,6 +265,7 @@ program H3Plus
    print*, "V Matrix Elements Computed"
    !V(:,:) = (-1.0_dp)*V(:,:)
 
+
    deallocate(angular)
    deallocate(VRadMatEl)
    H(:,:) = KMat(:,:) + V(:,:)
