@@ -25,6 +25,10 @@ module basismodule
 	    real(dp), dimension(3):: R
 	    real(dp), dimension(3):: theta
 	    real(dp), dimension(3):: phi
+			!Parameters for isosceles triangel testing case
+			integer:: isoscop   !(1=use, 0=regular calculation)
+			real(dp):: R1
+			real(dp):: R2
 
 	    !integer:: z1         !Charge of nucleus 1
 	    !integer:: z2         !Charge of nucleus 2
@@ -47,6 +51,8 @@ module basismodule
 			real(dp), dimension(:), allocatable:: temp
 			integer:: counter
 			real(dp):: angletemp !Temporary storage for angle in degrees
+	    !Used to set parameters in isosceles testing case
+	    real(dp):: R1, R2, L, RN2, thetaN2
 
 			open(20,file="input")
 
@@ -81,6 +87,15 @@ module basismodule
 			indata%phi(2) = pi*(angletemp/180.0_dp)
 			read(20,*) angletemp
 			indata%phi(3) = pi*(angletemp/180.0_dp)
+			read(20,*) 
+			read(20,*) indata%isoscop
+			read(20,*) indata%R1
+			read(20,*) indata%R2
+	    
+      if (indata%R1 .gt. 2.0_dp*indata%R2) then
+				 print*, "ERROR: isosclese triangle with R1 > 2*R2 do &not exist, stopping"
+				 stop
+	    end if
 
 			allocate(temp(indata%Nalpha))
 			temp(:) = 0.0_dp
@@ -104,6 +119,26 @@ module basismodule
 			   end if
 			   end do
 			deallocate(temp)
+
+			!Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
+			if (indata%isoscop .eq. 1) then
+			   R1 = indata%R1
+				 R2 = indata%R2
+				 L = sqrt(R2**2 - (0.5_dp*indata%R1)**2)
+
+				 indata%R(1) = (2.0_dp/3.0_dp)*L
+				 RN2 = sqrt((0.5_dp*R1)**2 + (L/3.0_dp)**2)
+				 indata%R(2) = RN2
+				 indata%R(3) = RN2    !Symmetric case
+
+         thetaN2 = acos((RN2**2+(2.0_dp*L/3.0_dp)**2-R2**2)/(2.0_dp*RN2*(2.0_dp*L/3.0_dp)))
+				 indata%theta(1) = 0.0_dp
+				 indata%theta(2) = thetaN2  !acos gives angle in radians
+				 indata%theta(3) = thetaN2
+				 indata%phi(1) = 0.0_dp
+				 indata%phi(2) = pi*90.0_dp/180_dp 
+				 indata%phi(3) = -indata%phi(2)  !Symmetric, x axis orthogonal to plane of molecule
+			end if
 			
 			close(20)
 	 end subroutine readInput
@@ -286,8 +321,10 @@ module basismodule
 	    integer:: li, mi, lj, mj
 
             !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
+						!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q) &
+						!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pi)
             do ii = 1, num_func
-	       !print*, ii
+	             !print*, ii
                do jj = 1, num_func
                   li = l_list(ii)
                   mi = m_list(ii)
@@ -300,7 +337,7 @@ module basismodule
                            angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
                  	     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
                         else if (indata%harmop .eq. 1) then
-                 	  !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
+                 	         !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
                            angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
                         end if
 
@@ -311,6 +348,7 @@ module basismodule
                   end do
                end do
             end do
+						!$OMP END PARALLEL DO 
 
 	 end subroutine getAngular
 
@@ -349,16 +387,16 @@ module basismodule
 	       allocate(f(nr))
 	       f(:) = 0.0_dp
 	       do m = 1, numrfuncs
-		  i1 = max(basis%b(n)%minf, basis%b(m)%minf)
-		  i2 = min(basis%b(n)%maxf, basis%b(m)%maxf)
-		  lambdaind = 1
-		  do lambda = 0, indata%lambdamax
-		     do q = -lambda, lambda
-	      	        f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
-			VRadMatEl(lambdaind,n,m) = sum(f(i1:i2)*ingrid%weight(i1:i2))
-			lambdaind = lambdaind + 1
-		     end do
-		  end do
+		        i1 = max(basis%b(n)%minf, basis%b(m)%minf)
+		        i2 = min(basis%b(n)%maxf, basis%b(m)%maxf)
+		        lambdaind = 1
+		        do lambda = 0, indata%lambdamax
+		           do q = -lambda, lambda
+	                f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
+			            VRadMatEl(lambdaind,n,m) = sum(f(i1:i2)*ingrid%weight(i1:i2))
+			            lambdaind = lambdaind + 1
+		           end do
+		        end do
 	       end do
 	       deallocate(f)
 	    end do
@@ -393,21 +431,21 @@ module basismodule
 	    do ii=1, num_func
 	       !print*, ii
 	       do jj = 1, num_func
-		  n = sturm_ind_list(ii)
-		  m = sturm_ind_list(jj)
+		        n = sturm_ind_list(ii)
+		        m = sturm_ind_list(jj)
 
 	          !Calculate V-matrix element for each lambda in the expansion
-		  lambdaind = 1
-		  do lambda = 0, indata%lambdamax
-		     do q = -lambda, lambda
-			V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
-			lambdaind = lambdaind + 1
-		     end do
-		  end do
-		  if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
-		     print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
-		     stop
-		  end if
+		        lambdaind = 1
+		        do lambda = 0, indata%lambdamax
+		           do q = -lambda, lambda
+			            V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
+			            lambdaind = lambdaind + 1
+		           end do
+		        end do
+		        if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
+		           print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
+		           stop
+		        end if
 	       end do
 	    end do
 	    !!!$OMP END PARALLEL DO
@@ -532,24 +570,20 @@ module basismodule
 	          res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
 	                *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
 	       else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
-	          if (int(mu1) .eq. 0) then
-	             !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
-	             res = sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
-	          else 
-	             res = 0.0_dp
-	          end if
+	          !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
+	          res = kronecker(int(mu1),0)*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
 	       else 
-		  !Formula for overlap of Xlm in terms of overlap of Ylm
-		  res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
-		        *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
-		        *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
-			*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
-			*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
+		        !Formula for overlap of Xlm in terms of overlap of Ylm
+		        res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
+		              *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
+		              *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
+			      *Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
+			      *VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
+				    res = -res
 	       end if
 	    end if
 
 	 end function Xint
-
 
 
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

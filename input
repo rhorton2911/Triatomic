@@ -10,14 +10,18 @@
 !!!!!!!!!!!!!!!Nuclear coordinates!!!!!!!!!!!!
 1     !z1 (charge of nucleus 1)
 1     !z2 (charge of nucleus 2)
-0     !z3 (charge of nucleus 3)
+1     !z3 (charge of nucleus 3)
 1.0   !R1 (radius of nucleus 1)
 1.0   !R2 (radius of nucleus 2)
 1.0   !R3 (radius of nucleus 3)
 0.0       !theta1 (degrees)
-180.0     !theta2 (degrees)
+120.0     !theta2 (degrees)
 120.0     !theta3 (degrees)
 0.0       !phi1 (degrees)
 90.0      !phi2 (degrees)
 -90.0     !phi3 (degrees)
+!!!!!!!!!!!Iscosceles Testing Mode!!!!!!!!!!!!!!
+1         !Run for test case (1=yes, 0 =normal run)
+R1       !Side length 1
+R2       !Side length 2
 

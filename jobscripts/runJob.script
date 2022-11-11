@@ -1,0 +1,23 @@
+#!/bin/bash -l
+
+#Script: runJob.script
+#Purpose: script for submitting a job to setonix. In this case to run
+#         the H3++ structure code within a particular directory on scratch
+#Usage: assumes this script is being called from the directory in which the code
+#       is to be run. 
+
+
+#Specify resources required on setonix nodes using SLURM directives.
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --exclusive
+#SBATCH --cpus-per-task=22
+#SBATCH --time=00:04:00
+#SBATCH --export=NONE
+
+export OMP_NUM_THREADS=10
+export OMP_STACKSIZE=500m
+echo "Running H3++ structure"
+
+srun -N 1 -n 1 -c 22 $MYSCRATCH/isosceleseTest/H3Plus

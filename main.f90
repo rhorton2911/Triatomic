@@ -65,23 +65,23 @@ program H3Plus
    N = indata%N
    m_max = indata%mmax
    !lmax = indata%l
-   !Specify charge of each nucleus
-   charge(1) = indata%charge(1)
-   charge(2) = indata%charge(2)
-   charge(3) = indata%charge(3)
-    
-   !Specify distances of nuclei from the origin
-   R(1) = indata%R(1)
-   R(2) = indata%R(2)
-   R(3) = indata%R(3)
+   !!Specify charge of each nucleus
+   !charge(1) = indata%charge(1)
+   !charge(2) = indata%charge(2)
+   !charge(3) = indata%charge(3)
+   ! 
+   !!Specify distances of nuclei from the origin
+   !R(1) = indata%R(1)
+   !R(2) = indata%R(2)
+   !R(3) = indata%R(3)
 
-   !Angular coordinates of each nucleus
-   theta(1) = indata%theta(1)
-   theta(2) = indata%theta(2)
-   theta(3) = indata%theta(3)
-   phi(1) = indata%phi(1)
-   phi(2) = indata%phi(2)
-   phi(3) = indata%phi(3)
+   !!Angular coordinates of each nucleus
+   !theta(1) = indata%theta(1)
+   !theta(2) = indata%theta(2)
+   !theta(3) = indata%theta(3)
+   !phi(1) = indata%phi(1)
+   !phi(2) = indata%phi(2)
+   !phi(3) = indata%phi(3)
 
    nr = grid%nr
 
@@ -92,7 +92,8 @@ program H3Plus
    VPot(:,:) = 0.0_dp
    allocate(VPotTemp(nr, num_lambda))
    do ii = 1, 3
-      call getVPotNuc(grid, VPotTemp, R(ii), theta(ii), phi(ii), charge(ii), indata)
+      call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
+			indata%phi(ii), indata%charge(ii), indata)
       VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
    end do
    deallocate(VPotTemp)
@@ -252,31 +253,6 @@ program H3Plus
    !!Precalculate angular integrals appearing in V-matrix elements
    allocate(angular(num_lambda,num_func,num_func))
    call getAngular(num_func, angular, l_list, m_list, indata)
-   !!Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
-   !do ii = 1, num_func
-   !   do jj = 1, num_func
-   !      li = l_list(ii)
-   !      mi = m_list(ii)
-   !      lj = l_list(jj)
-   !      mj = m_list(jj)
-   !      lambdaind=1
-   !      do lambda = 0, indata%lambdamax
-   !         do q = -lambda, lambda
-   !            if (indata%harmop .eq. 0) then
-   !               angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
-   !     	     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
-   !            else if (indata%harmop .eq. 1) then
-   !     	  !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
-   !               angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
-   !            end if
-
-   !            !print*, li, mi, lambda, q, lj, mj
-   !            !print*, angular(lambdaind,ii,jj)
-   !            lambdaind = lambdaind + 1 
-   !         end do
-   !      end do
-   !   end do
-   !end do
 
    !Precalculate radial matrix elements
    allocate(VRadMatEl(num_lambda,rad_func,rad_func))
@@ -312,11 +288,13 @@ program H3Plus
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	 cosij = cos(theta(ii))*cos(theta(jj)) + sin(theta(ii))*sin(theta(jj))*cos(phi(ii)-phi(jj))
-         Rij = sqrt(R(ii)**2 + R(jj)**2 - 2*R(ii)*R(jj)*cosij)
-	 !Account for degenerate case where nuclei coincide
+	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+				         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
+         Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
+				 2*indata%R(ii)*indata%R(jj)*cosij)
+	       !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dp) then
-            w(:) = w(:) + dble(charge(ii)*charge(jj))/Rij
+            w(:) = w(:) + dble(indata%charge(ii)*indata%charge(jj))/Rij
          end if
       end do
    end do
@@ -401,7 +379,7 @@ program H3Plus
    !Write energes of states to file
    open(80,file="energies.txt")
    write(80,*) "State Energies (Ha)"
-   write(80,*) "R1=", R(1), " R2=", R(2), "R3=", R(3)
+   write(80,*) "R1=", indata%R(1), " R2=", indata%R(2), "R3=", indata%R(3)
    write(80,*) "N (index), E(Ha)"
    do ii = 1, nstates
       write(80,*) ii, energies(ii)
