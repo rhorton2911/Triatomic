@@ -13,8 +13,8 @@ fi
 cd $MYSOFTWARE/Triatomic/
 cp ./H3Plus /scratch/d35/rhorton/isosceleseTest/
 
-Rvals1=$(seq 0.1 0.1 7.0)
-Rvals2=$(seq 0.1 0.1 7.0)
+Rvals1=$(seq 0.2 0.2 7.0)
+Rvals2=$(seq 0.2 0.2 7.0)
 
 cd /scratch/d35/rhorton/isosceleseTest/
 rm R1vals.txt

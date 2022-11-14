@@ -28,6 +28,6 @@ do
 	 #allow for use of gnuplot
    for i in $(seq 1 4) 
    do 
-      echo " " >> ../PEC.${i}
+      echo -e ' \n' >> ../PEC.${i}
    done
 done
