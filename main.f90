@@ -10,6 +10,7 @@ program H3Plus
    use input_data !Defines global data_in variable
    use basismodule
    use numbers
+	 use ieee_arithmetic
    implicit none
    
    type(smallinput):: indata
@@ -18,21 +19,20 @@ program H3Plus
    real(dp), dimension(:), allocatable:: w
    real(dp), dimension(:,:), allocatable:: z, wf !, B, H, KMat, 
    complex(dp), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
+	 logical, dimension(:), allocatable:: use_list
    complex(dp), dimension(:,:,:), allocatable:: VRadMatEl
    !real(dp), dimension(:,:), allocatable:: VReal
    !complex(dp), dimension(:,:), allocatable:: VTemp
    real(dp), dimension(:,:), allocatable:: realH, realB
    real(dp), dimension(:,:,:), allocatable:: angular
-   integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list
-   real(dp), dimension(:), allocatable::  energies
+   integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list 
+	 real(dp), dimension(:), allocatable::  energies
    integer:: num_func, l, m, k, rad_func
    integer:: num_lambda
    integer:: lblocksize
    integer:: N, m_max !,lmax
    integer:: nstates, ier
    real(dp):: alphal, mu
-   real(dp), dimension(3):: R, theta, phi !Coordinates and charge of each nucleus
-   integer, dimension(3):: charge
    real(dp):: Rij, cosij
    logical:: sorted, found
    real(dp):: E1, E2, temp
@@ -46,6 +46,17 @@ program H3Plus
    !Sturmian data types
    type(basis_sturmian_nr)::basis
    integer:: i1, i2
+	 real(dp):: largest, smallest, largestZ
+	 integer:: si, sj
+	 !Data required for calling lapack routine dsygv
+	 real(dp), dimension(:), allocatable:: work
+	 integer:: lda, ldb
+	 integer:: lwork, info
+	 logical:: uselapack
+	 !Arrays for testing case
+	 integer, dimension(20):: testm, testl, testk
+	 integer:: numfound, u1, u2
+	 complex(dp), dimension(:,:), allocatable:: tempK, tempB, KMatConroy
 
    !Intrinsic date and time subroutine
    call date_and_time(date1,time1,zone1,values1)
@@ -53,35 +64,47 @@ program H3Plus
    !Legacy .f77 subroutine. Sets up common (global :( ) variables used by function YLM in plql.f
    call FAKRED
    call DFSET
-
+ 
    !Read in MCCC input data file to set up necessary data_in structure
    call readin( data_in, 10, 1)
    !Initialise data type containing rgrid and integration weights, global variable ( ): ) in grid_radial module
    call setgrids(grid)
-   !Initialise sturmian data types, requires input data type defined in the MCCC code.
-   call construct(basis, data_in)
- 
+
    call readInput(indata)
    N = indata%N
    m_max = indata%mmax
-   !lmax = indata%l
-   !!Specify charge of each nucleus
-   !charge(1) = indata%charge(1)
-   !charge(2) = indata%charge(2)
-   !charge(3) = indata%charge(3)
-   ! 
-   !!Specify distances of nuclei from the origin
-   !R(1) = indata%R(1)
-   !R(2) = indata%R(2)
-   !R(3) = indata%R(3)
+	 uselapack = .true.
 
-   !!Angular coordinates of each nucleus
-   !theta(1) = indata%theta(1)
-   !theta(2) = indata%theta(2)
-   !theta(3) = indata%theta(3)
-   !phi(1) = indata%phi(1)
-   !phi(2) = indata%phi(2)
-   !phi(3) = indata%phi(3)
+   !Initialise sturmian data types, requires input data type defined in the MCCC code.
+	 if (indata%isoscop .eq. 0) then
+      call construct(basis, data_in)
+	 else if (indata%isoscop .eq. 1) then
+			if (indata%conroybasis .eq. 1) then
+				 !Just for testing, remove
+				 indata%R(1) = 1.0
+				 indata%R(2) = 1.0
+				 indata%R(3) = 0.0
+				 indata%charge(1) = 1
+				 indata%charge(2) = 1
+				 indata%charge(3) = 0
+
+			   call construct_all_conroy_basis(basis, grid, indata, data_in, KMatConroy)
+			   !Write some basis functions to file for testing
+			   open(70,file='conroyfunc.txt')
+			   write(70,*) "r(a_0)  psi_(k,0,0)(k=1->5)"
+			   do ii = 1, grid%nr
+			   	 write(70,*) grid%gridr(ii), (basis%b(jj)%f(ii), jj=1, 5)
+			   end do
+			   close(70)
+				 stop
+			else
+         call construct(basis, data_in)
+				 !print*, indata%R(1), indata%R(2), indata%R(3)
+				 !print*, indata%theta(1), indata%theta(2), indata%theta(3)
+				 !print*, indata%phi(1), indata%phi(2), indata%phi(3)
+				 !print*, indata%charge(1), indata%charge(2), indata%charge(3)
+	    end if
+	 end if
 
    nr = grid%nr
 
@@ -113,12 +136,11 @@ program H3Plus
       stop
    end if
 
-   !Number of energies calculated by rsg will be equal to the size of the basis used.
-   !Allocate array to store energy of each state
-   nstates = num_func
-   allocate(energies(nstates))
-   energies(:) = 0.0_dp
-   nstates=0
+
+	 !Defined arrays for test case
+	 testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
+	 testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
+	 testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
 
    !Define arrays to keep track of k,l,m values for each index
    !Indexing scheme: specify (l,m), then k goes from 1 to N for each such pair 
@@ -129,31 +151,31 @@ program H3Plus
    kk = 0
    do l = data_in%labot, data_in%latop
       do m = -l, l
-	 jj  = kk 
+	       jj  = kk 
          do k = 1, data_in%nps(l)
             ii = ii + 1
             k_list(ii) = k
             l_list(ii) = l
-	    m_list(ii) = m
-	    !print*, "L,M,k,ii: ", l, m, k, ii
+	          m_list(ii) = m
+	          !print*, "L,M,k,ii: ", l, m, k, ii
 
-	    !Indexing changed for non-diatomics, indices for basis now include l, k AND m. For a given l, the same radial basis
-	    !functions phi_{kl} are used for each value of m from -l to l. Introduce an array to track which radial basis 
-	    !function belongs to which index.
-	    jj = jj + 1
+	          !Indexing changed for non-diatomics, indices for basis now include l, k AND m. For a given l, the same radial basis
+	          !functions phi_{kl} are used for each value of m from -l to l. Introduce an array to track which radial basis 
+	          !function belongs to which index.
+	          jj = jj + 1
 
-	    found = .false.
-	    n = 1
-	    do while (.not. found)
-	       if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
-		  found = .true.
-	       else
-		  n = n +1
-	       end if
-	    end do
+	          found = .false.
+	          n = 1
+	          do while (.not. found)
+	             if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
+		              found = .true.
+	             else
+		              n = n +1
+	             end if
+	          end do
 
-	    sturm_ind_list(ii) = n
-	    !print*, jj
+	          sturm_ind_list(ii) = n
+	          !print*, jj
          end do
       end do
       !The radial part of the basis is identical for any given (l,k) pair, regardless of m
@@ -163,39 +185,7 @@ program H3Plus
 
       kk = kk + data_in%nps(l)
    end do
-   
-   !!Construct a basis with the given symmetry properties using the l_list and 
-   !!k_list variables
-   !allocate(radbasis(nr,rad_func))
-   !l=-1
-   !kk=0
-   !jj=0
-   !do ii=1,  num_func
-   !   if (l .eq. l_list(ii)) then
-   !   	 cycle
-   !   end if
-   !   l = l_list(ii)
-   !   !In principle aliglows to specify a different alpha for each l
-   !   alphal = indata%alpha(l+1)
-   !   jj=kk+1
-   !   kk = kk+N
-   !
-   !   allocate(basisatl(nr, indata%N))
-   !   call createBasis(basisatl, l, alphal, indata%N, grid)
-   !   radbasis(:,jj:kk) = basisatl(:,1:N)
-   !   deallocate(basisatl)
-   !end do
-
-   !!Write some of the basis functions to file for plotting
-   !open(70,file="basis.txt")
-   !write(70,*) "l, lmax,N: ", 2, lmax, N
-   !if (lmax .ge. 2) then
-   !   do jj=1, nr
-   !      write(70,*) grid%gridr(jj), (radbasis(jj,ii), ii=2*N+1, 3*N)
-   !   end do
-   !end if
-   !close(70)
-   
+ 
    !Calculate the matrix elements, iterating through l values
    allocate(H(num_func,num_func),B(num_func,num_func),V(num_func,num_func))
    allocate(KMat(num_func, num_func))
@@ -209,7 +199,7 @@ program H3Plus
    do ii = 1, num_func-1
          B(ii,ii) = 1.0_dp
          l=l_list(ii)
-	 m=m_list(ii)
+	       m=m_list(ii)
          k=k_list(ii)
          if ((l_list(ii+1) .ne. l) .or. (m_list(ii+1) .ne. m)) then
             cycle
@@ -240,7 +230,7 @@ program H3Plus
       end if
       l = l_list(ii)
       alphal = data_in%alpha(l)
-      !Assuming we choose the same range of k for each l
+      !Assuming we choose the same range of k for each m at a given l
       lblocksize = data_in%nps(l)*(2*l+1)
       jj=kk+1
       kk = kk + lblocksize
@@ -249,6 +239,59 @@ program H3Plus
    mu = 1.0_dp
    KMat(:,:) = KMat(:,:)/mu
 
+   allocate(use_list(num_func))
+   use_list(:) = .true.
+   if ((indata%isobasisop .eq. 1) .and. (indata%isoscop .eq. 1)) then
+			use_list(:) = .false.
+			numfound = 0
+			do ii = 1, 20
+				 print*, testk(ii), testl(ii), testm(ii)
+			   do jj = 1, num_func
+				    if (((k_list(jj) .eq. testk(ii)) .and. &
+							 (l_list(jj) .eq. testl(ii)))  .and. &
+							 (m_list(jj) .eq. testm(ii)))  then
+
+							 use_list(jj) = .true.
+							 numfound = numfound + 1
+						end if
+				 end do
+			end do
+			if (numfound .ne. 20) then
+				 print*, "ERROR: basis functions with required symmetries for &
+				 &test case not found, require at least lmax=3 and N=5. &
+				 & Stopping."
+				 stop
+			end if
+
+			!Produce K and B matrix for restricted basis, just copy over the
+			!right elements from the full K and B matrices
+	    allocate(tempK(num_func,num_func), tempB(num_func, num_func))
+	    tempK(:,:) = KMat(:,:)
+			tempB(:,:) = B(:,:)
+	    deallocate(KMat, B)
+	    allocate(KMat(20,20), B(20,20))
+			u1 = 1
+			do ii = 1, num_func
+				 u2 = 1
+				 do jj= 1, num_func
+				    if (use_list(ii) .and. use_list(jj)) then
+							 KMat(u1,u2) = tempK(ii,jj)
+							 B(u1,u2) = tempB(ii,jj)
+							 u2 = u2 + 1
+						end if
+				 end do
+				 if (use_list(ii)) then
+				    u1 = u1 + 1
+				 end if
+			end do
+			deallocate(tempK, tempB, H, V)	
+				    
+			num_func = 20
+			allocate(H(num_func,num_func), V(num_func,num_func))
+			H(:,:) = 0.0_dp
+			V(:,:) = 0.0_dp
+	 end if
+ 
    print*, "GET ANGULAR MATRIX ELEMENTS"
    !!Precalculate angular integrals appearing in V-matrix elements
    allocate(angular(num_lambda,num_func,num_func))
@@ -261,26 +304,168 @@ program H3Plus
    call getRadMatEl(basis, VPot, grid, VRadMatEl, indata)
 
    !If real spherical harmonics are used, V matrix elements will have complex part zero.
-   call getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata)
+   call getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata, use_list)
    print*, "V Matrix Elements Computed"
-   !V(:,:) = (-1.0_dp)*V(:,:)
-
 
    deallocate(angular)
    deallocate(VRadMatEl)
    H(:,:) = KMat(:,:) + V(:,:)
 
+   allocate(realH(num_func,num_func), realB(num_func,num_func))
+   realH(:,:) = real(H(:,:))
+   realB(:,:) = real(B(:,:)) 
+
+	 largest = 0.0_dp
+	 do ii = 1, num_func
+	    do jj = 1, num_func
+	       if (isnan(realH(ii,jj))) then
+						print*, "realH: ", ii,jj
+						print*, realH(ii,jj)
+						stop
+				 end if
+	       if (isnan(realB(ii,jj))) then
+						print*, "realB: ", ii,jj
+						stop
+				 end if
+	       if (.not. ieee_is_finite(realH(ii,jj))) then
+						print*, "realH infinite: ", ii,jj
+						print*, H(ii,jj)
+						print*, realH(ii,jj)
+						stop
+				 end if
+	       if (.not. ieee_is_finite(realB(ii,jj))) then
+						print*, "realB infinite: ", ii,jj
+						stop
+				 end if
+
+				 if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .lt. 0.0_dp)) then
+				    largest = realH(ii,jj)
+				 end if
+			end do
+	 end do
+	 do ii = 1, num_func
+	    do jj = 1, num_func
+	       if (abs(realH(ii,jj)) .lt. 1E-8*abs(largest)) then
+						realH(ii,jj) = 0.0_dp
+				 end if
+			end do
+	 end do
+	 print*, "Removed small matrix elements"
+
    !Call the rsg subroutine to solve the eigenvalue problem for the energies
    allocate(w(num_func),z(num_func,num_func))
 
-   allocate(realH(num_func,num_func), realB(num_func,num_func))
-   realH(:,:) = real(H(:,:))
-   realB(:,:) = real(B(:,:))
+   !ALTERNATIVE: USE LAPACK ZHEGVX FUNCTION FOR HERMITIAN MATRICES RATHER THAN REAL SYMMETRIC
+	 if (uselapack .eqv. .false.) then
+      print*, "CALL RSG"
+      call rsg(num_func,num_func,realH,realB,w,1,z,ier)
+   else
+			print*, "CALL DSYGV"
+	    lda = num_func
+	    ldb = num_func
+	    allocate(work(1))
+	    call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, -1, info) !-1 -> workspace query, get best lwork
+	    lwork = int(work(1))
+	    deallocate(work)
+	    allocate(work(lwork))
+	    call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, lwork, info) 
+	    z(:,:) = realH(:,:) !On exit, dsygv overwrites matrix with eigenvectors
+			deallocate(work)
+	 end if
 
-   !MODIFY: USE LAPACK ZHEGVX FUNCTION INSTEAD FOR HERMITIAN MATRICES RATHER THAN REAL SYMMETRIC
-   !ALTERNATIVELY, pass only real part to rsg
-   print*, "CALL RSG"
-   call rsg(num_func,num_func,realH,realB,w,1,z,ier)
+	 !Find largest expansion coefficient, ignore those below a certain
+	 !magnitude for stability/to get rid of underflow 
+	 largestZ = 0.0_dp
+	 do ii = 1, num_func
+	    do jj = 1, num_func
+	       if (abs(z(ii,jj)) .gt. abs(largestZ)) then
+						largestZ = z(ii,jj)
+				 end if
+			end do
+	 end do
+	 do ii = 1, num_func
+	    do jj = 1, num_func
+	       if ((abs(z(ii,jj)) .lt. 1E-10*abs(largestZ)) .and. (abs(z(ii,jj)) .gt. 0.0_dp)) then
+						z(ii,jj) = 0.0_dp
+				 end if
+			end do
+	 end do
+
+	 !smallest = 1000.0_dp 
+	 !do ii = 1, num_func
+	 !   do jj = 1, num_func
+	 !      if ((abs(z(ii,jj)) .lt. abs(smallest)) .and. (abs(z(ii,jj)) .gt. 0.0_dp)) then 
+	 ! 		  	smallest = z(ii,jj)
+	 ! 		  	si = ii
+	 ! 		  	sj = jj
+	 ! 		 end if
+	 ! 		 !if ((l_list(ii) .eq. 2) .and. ((m_list(ii) .eq. -1) .and. (k_list(ii) .eq. 1))) then
+	 ! 		 !      if (jj .eq. 159) then
+	 ! 		 ! 		    print*, "N=10, smallest: ", z(ii,159)
+	 ! 		 ! 		    print*, l_list(ii), m_list(ii), k_list(ii)
+	 ! 		 ! 		 end if
+	 ! 		 !end if
+	 ! 	end do
+   !end do
+	 !print*, smallest, si, sj
+	 !!!!!print*, z(51,159)
+	 !print*, l_list(si), m_list(si), k_list(si)
+	 !print*, l_list(sj), m_list(sj), k_list(sj)			 
+	 
+!	 info = 0
+!	 lwork = 8*num_func + 1
+!	 allocate(alphar(num_func), alphai(num_func), beta(num_func))
+!	 allocate(vl(num_func,num_func), vr(num_func,num_func), work(lwork))
+!	 alphar(:) = 0.0_dp
+!	 alphai(:) = 0.0_dp
+!	 beta(:) = 0.0_dp
+!	 vl(:,:) = 0.0_dp
+!	 vr(:,:) = 0.0_dp
+!	 jobvl = 'V'
+!	 jobvr = 'V'
+!	 work(:) = 0.0_dp
+!	 !First call is a workspace query to determine the optimal size of
+!	 !'work'.
+!	 print*, "BEFORE FIRST"
+!	 call sggev(jobvl, jobvr, num_func, realH, num_func, realB, num_func, alphar, &
+!	            alphai, beta, vl, num_func, vr, num_func, work, -1, info)
+!	 print*, "AFTER FIRST"
+!   lwork = int(work(1))
+!	 print*, info, lwork
+!   !deallocate(work)
+!	 !allocate(work(lwork))
+!	 !!Actual calculation
+!	 call sggev(jobvl, jobvr, num_func, realH, num_func, realB, num_func, alphar, &
+!	            alphai, beta, vl, num_func, vr, num_func, work, lwork, info)
+!
+!	 print*, "COMPUTED"
+!   do ii = 1, 1
+!	  	print*, alphar(ii), beta(ii)
+!	  	!if (beta(ii) .gt. 0.0_dp) then
+!	  	!   print*, alphar(ii)/beta(ii)
+!	  	!else
+!	  	!	 print*, alphar(ii)
+!	  	!end if
+!	 end do
+!	 stop
+!
+!	 if (info .eq. 0) then
+!	  	do ii = 1, num_func
+!	  		 if (abs(beta(ii)) .gt. 0.0_dp) then
+!	          w(ii) = alphar(ii)/beta(ii)
+!	  				z(:,ii) = vr(:,ii) !Copy eigenvectors to existing array
+!	  		 else 
+!	  				print*, "ERROR: beta(ii) equal to zero. Stopping."
+!	  				stop
+!	  		 end if
+!	  	end do
+!	 else
+!	    print*, "ERROR: solving for eigenvalues unsuccessful. Stopping."
+!	  	stop
+!   end if
+!	 deallocate(alphar, alphai, beta, vl, vr, work)
+
+
    deallocate(realH,realB)
 
    !Include effect of nucleus-nucleus interaction term by simply adding zi*zj/R_ij to energies at the end.
@@ -314,39 +499,40 @@ program H3Plus
    wf(:,:) = 0.0_dp
    do ii = 1, num_func
     	do jj=1, num_func
-	   if (abs(z(ii,jj)) .lt. 1E-20 ) then
-	      z(ii,jj) = 0.0_dp
-	   end if
-           kk = sturm_ind_list(jj)
-           !MODIFY TO BE A FUNCTION OF (r,theta,phi)
-	   !if (indata%harmop .eq. 0) then
-	   !else if (indata%harmop .eq. 1) then
-	   !end if
-	   !print*, ii, jj, kk, l_list(jj), k_list(jj), m_list(jj)
-           !if (ii .eq. 430) then
-           !   print*, "BASIS: ", radbasis(:,kk)
-           !   print*, z(jj,ii)
-           !   print*, tiny(w(1))
-           !   print*, "TEST"
-           !   print*, z(jj,ii)*radbasis(:,kk)
-           !   print*, "AFTER TEST"
-           !end if
+	       if (abs(z(ii,jj)) .lt. 1E-20 ) then
+	          z(ii,jj) = 0.0_dp
+	       end if
+         kk = sturm_ind_list(jj)
+         !MODIFY TO BE A FUNCTION OF (r,theta,phi)
 
-	   !Basis function set to zero outside of range of r values indexed by i1, i2
-	   i1 = basis%b(kk)%minf
-	   i2 = basis%b(kk)%maxf
-           
+	       !Basis function set to zero outside of range of r values indexed by i1, i2
+	       i1 = basis%b(kk)%minf
+	       i2 = basis%b(kk)%maxf
+               
     	   wf(i1:i2,ii) = wf(i1:i2,ii) +  z(jj,ii)*basis%b(kk)%f(i1:i2)!*YLM
     	end do
    end do
    print*, "WAVE FUNCTIONS CALCULATED"
 
+
+   !Number of energies calculated by rsg will be equal to the size of the basis used.
+   !Allocate array to store energy of each state
+   nstates = num_func
+   allocate(energies(nstates))
+   energies(:) = 0.0_dp
+   nstates=0
    nstates=num_func
    energies(:) = w(:)
 
    deallocate(k_list, l_list, m_list)
    deallocate(H,B,V,KMat)
+	 deallocate(use_list)
    deallocate(w,z,wf)
+	 if (indata%isoscop .eq. 1) then
+				 if (indata%conroybasis .eq. 1) then
+				    deallocate(KMatConroy)
+				 end if
+	 end if
 
    !Print out the first energy in each symmetry
    !ii= 1

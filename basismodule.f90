@@ -25,10 +25,17 @@ module basismodule
 	    real(dp), dimension(3):: R
 	    real(dp), dimension(3):: theta
 	    real(dp), dimension(3):: phi
-			!Parameters for isosceles triangel testing case
+			!Parameters for isosceles triangle testing case
 			integer:: isoscop   !(1=use, 0=regular calculation)
+			integer:: hernandeztest
+			integer:: isobasisop
+			integer:: conroybasis
 			real(dp):: R1
 			real(dp):: R2
+			integer, dimension(20):: testk, testl, testm
+			integer, dimension(7):: testlvec, kminvec, kmaxvec
+			integer:: numtestfuncs
+			real(dp):: enparam
 
 	    !integer:: z1         !Charge of nucleus 1
 	    !integer:: z2         !Charge of nucleus 2
@@ -89,6 +96,9 @@ module basismodule
 			indata%phi(3) = pi*(angletemp/180.0_dp)
 			read(20,*) 
 			read(20,*) indata%isoscop
+	    read(20,*) indata%hernandeztest
+	    read(20,*) indata%isobasisop
+	    read(20,*) indata%conroybasis
 			read(20,*) indata%R1
 			read(20,*) indata%R2
 	    
@@ -120,10 +130,16 @@ module basismodule
 			   end do
 			deallocate(temp)
 
-			!Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
+
 			if (indata%isoscop .eq. 1) then
+			   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
 			   R1 = indata%R1
 				 R2 = indata%R2
+				 if (indata%hernandeztest .eq. 1) then
+				    R1 = 3.50_dp
+						R2 = 2*R1*sin(pi/6.0_dp)
+				 end if
+
 				 L = sqrt(R2**2 - (0.5_dp*indata%R1)**2)
 
 				 indata%R(1) = (2.0_dp/3.0_dp)*L
@@ -138,7 +154,19 @@ module basismodule
 				 indata%phi(1) = 0.0_dp
 				 indata%phi(2) = pi*90.0_dp/180_dp 
 				 indata%phi(3) = -indata%phi(2)  !Symmetric, x axis orthogonal to plane of molecule
+
+				 !Set up arrays storing indices of basis functions, hardcode
+				 !values from Conroy's paper.
+	       indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
+	       indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
+	       indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
+				 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
+				 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
+				 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
+				 indata%enparam = -3.788_dp  !energy (a.u)
+				 indata%numtestfuncs = 20
 			end if
+
 			
 			close(20)
 	 end subroutine readInput
@@ -205,6 +233,242 @@ module basismodule
 	 end subroutine createBasis
 
 
+
+
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: construct_all_conroy_basis
+	 !Purpose: constructs the basis used by Conroy in in a calculation
+	 !         of H3++ structure, adapted to reflect certain properties
+	 !         of the H3++ molecule. Calculates B and K matrix elements as 
+	 !         part of this.
+	 !         Conroy, H. 1969. J. Chem. Phys. 51, 3979: Molecular Schrodinger Equation X
+	 !Note: basis indices used here and in conroy are: (k,l,m) <--> (i,j,k)
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine construct_all_conroy_basis(self, ingrid, indata, dataARG, KMat)
+			use grid_radial
+      use sturmian_class
+			use input_data
+			implicit none
+			type(basis_sturmian_nr), intent(inout):: self
+			type(smallinput), intent(in):: indata
+			type(input), intent(in):: dataARG
+			type(rgrid):: ingrid
+			complex(dp), dimension(:,:), allocatable:: KMat
+			real(dp), dimension(:,:), allocatable:: f8
+			real(dp), dimension(:), allocatable:: gridr, func, temp
+      real(dp), dimension(:), allocatable:: J, s1, s2 !Function q(r), sigma_1(r), sigma_2(r)
+      real(dp), dimension(:), allocatable:: q !Function q(r), argument of laguerre polynomial
+      real(dp), dimension(:), allocatable:: rho 
+			real(dp):: a, e, gam, r0 !Parameters alpha, epsilon, gamma and rho
+			integer:: n   !Maximum order of the laguerre polynomials
+			integer:: labot, latop, k, l, kmin, kmax
+			real(dp):: lagarg, lambda
+			integer:: ii, jj, kn, i1, i2
+
+      call new_basis(self,indata%numtestfuncs)
+			allocate(rho(ingrid%nr), gridr(ingrid%nr))
+			gridr(:) = ingrid%gridr(:)
+
+			e = sqrt(-2*indata%enparam)
+			gam = dble(sum(indata%charge))
+			a = gam/e - 1.0_dp
+			rho = sum(dble(indata%charge(:))*indata%R(:))/gam
+			r0 = sum(dble(indata%charge(:))*indata%R(:))/gam
+
+			labot = dataARG%labot
+			latop  = dataARG%latop
+			print*, e, gam, a, rho, r0
+
+			allocate(s1(ingrid%nr), s2(ingrid%nr), J(ingrid%nr))
+			allocate(func(ingrid%nr), temp(ingrid%nr), q(ingrid%nr))
+			s1(:) = 1.0_dp/sqrt(gridr(:)**2 + r0**2)
+			s2(:) = 1.0_dp/sqrt(gridr(:)**2 + r0**2 + e**(-2))
+			J(:) = (s2(:)**(-a)) * exp(-gam*rho + (gam-e)/s1(:))
+
+			open(70,file='Jfunc.txt')
+			do ii=1, ingrid%nr
+				 write(70,*) gridr(ii), (s2(ii)**(-a))
+			end do
+			close(70)
+			stop
+
+			!Argument of laguerre polynomials
+			q(:) = 2.0_dp*e*(1.0_dp/s1(:) - r0)
+
+			kn = 0 !Superindex for functions in basis
+
+			do ii = 1, size(indata%testlvec)
+				 l = indata%testlvec(ii)
+				 !Get min and max k for this l
+				 kmin = indata%kminvec(ii)
+				 kmax = indata%kmaxvec(ii) 
+
+				 n = kmax+l+1
+
+				 allocate(f8(grid%nr,n))
+				 f8(:,:) = 0.0_dp
+				 !Calculate generalised laguerre polynomials using lagpol8 from sturmian
+				 lagarg = dble(2*l+1)
+				 lambda = 1.0_dp
+
+				 !Call with q(r) as argument as per formula
+				 call lagpol8(lagarg, lambda, f8, ingrid%nr, n, q, ingrid%nr)
+
+				 !Lagpol calculates all polynomials from 0 to n-1, choose subset used in paper
+				 do k = kmin, kmax
+				    !Laguerre polynomials are left unnormalised in Conroy's
+						!work, using polynomials of order (k+l)
+						temp(:) = f8(:,k+l+1) 
+
+						kn = kn + 1
+
+						i1 = 1
+						i2 = grid%nr
+
+						!Calculated radial part of basis function
+						func(:) = J(:)*temp(:)*(gridr(:)**l)*(s2(:)**(k-1))
+						call init_function(self%b(kn), l, k, i1, i2, func, ingrid%nr,1.0_dp)
+				 end do
+				 deallocate(f8)
+			end do
+
+			!Calculate the overlap matrix for the basis via integration
+			do ii = 1, indata%numtestfuncs
+				 do jj = 1, indata%numtestfuncs
+				    if ((indata%testl(ii) .eq. indata%testl(jj)) .and. &
+						    (indata%testm(ii) .eq. indata%testm(jj))) then
+				       self%ortint(ii,jj) = sum(self%b(ii)%f(:)*self%b(jj)%f(:)*ingrid%weight(:))
+				    else
+							 self%ortint(ii,jj) = 0.0_dp
+						end if
+				 end do
+			end do
+
+	    !Calculate K matrix elements
+			!call getConroyKMat(self, KMat, grid, indata, s1, s2, J, q, e, gam, a, rho, r0)
+
+			deallocate(gridr, s1, s2, J, temp, func, q, rho)
+	 end subroutine construct_all_conroy_basis
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getConroyKMat
+	 !Purpose: calculates the K matrix elements for the basis used in
+	 !Conroy's paper.
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getConroyKMat(self, KMat, ingrid, indata, s1, s2, J, q, e, gam, a, rho, r0)
+			use grid_radial
+      use sturmian_class
+			use input_data
+	    implicit none
+			type(basis_sturmian_nr), intent(in):: self
+			complex(dp), dimension(:,:), allocatable:: KMat
+			type(smallinput):: indata
+	    type(rgrid):: ingrid
+	    real(dp), dimension(:):: s1, s2, J, q
+	    real(dp), dimension(:):: rho
+	    real(dp):: e, gam, a, r0  !Parameters used in basis def
+	    !Derivatives of functions s1, s2, q and J
+	    real(dp), dimension(:), allocatable:: s1p, s1pp, s2p, s2pp
+	    real(dp), dimension(:), allocatable:: qp, qpp, Jp, Jpp
+	    !Derivatives of the basis functions
+	    real(dp), dimension(:), allocatable:: psi, psip, psipp
+	    real(dp), dimension(:), allocatable:: t1, t2, t3
+	    real(dp), dimension(:,:), allocatable:: f1, f2, f3
+	    integer:: ii, jj, k, l, kmax, n
+	    real(dp):: lagarg, lambda
+	    !K operator acting on basis function
+	    real(dp), dimension(:), allocatable:: Kb
+	    real(dp), dimension(:), allocatable:: gridr
+
+      allocate(KMat(indata%numtestfuncs, indata%numtestfuncs))
+			KMat(:,:) = 0.0_dp
+
+	    allocate(s1p(ingrid%nr), s1pp(ingrid%nr), s2p(ingrid%nr), s2pp(ingrid%nr))
+	    allocate(qp(ingrid%nr), qpp(ingrid%nr), Jp(ingrid%nr), Jpp(ingrid%nr))
+	    allocate(Kb(ingrid%nr), psi(ingrid%nr), psip(ingrid%nr), psipp(ingrid%nr))
+			allocate(t1(ingrid%nr), t2(ingrid%nr), t3(ingrid%nr))
+			allocate(gridr(ingrid%nr))
+
+			gridr(:) = ingrid%gridr(:)
+
+			do ii = 1, indata%numtestfuncs
+				 do jj = 1, indata%numtestfuncs 
+				    if ((indata%testl(ii) .eq. indata%testl(jj)) .and. &
+						    (indata%testm(ii) .eq. indata%testm(jj))) then
+							 k = indata%testk(jj)
+							 l = indata%testl(jj)
+
+							 !Calculate using formulas for K[basis func]
+							 s1p(:) = -gridr(:)*(s1(:)**3) 
+							 s1pp(:) = -(s1(:)**2)*(s1(:) + 3.0_dp*gridr(:)*s1p(:))
+							 s2p(:) = -gridr(:)*(s2(:)**3)
+							 s2pp(:) = -(s2(:)**2)*(s2(:) + 3.0_dp*gridr(:)*s2p(:)) 
+							 qp(:) = -2.0_dp*e*(s1(:)**(-2))*s1p(:)
+							 qpp(:) = -2.0_dp*e*(s1(:)**(-2))*(-2.0_dp*(s1(:)**(-1))*(s1p(:)**2) &
+							          + s1pp(:))
+
+							 !Calculate laguerre polynomials used in formulas
+				       !Call with q(r) as argument as per formula
+							 kmax = indata%kmaxvec(indata%numtestfuncs)
+							 n = kmax + l + 1
+							 allocate(f1(ingrid%nr,n), f2(ingrid%nr,n), f3(ingrid%nr,n))
+							 lagarg = 2*l+1
+							 lambda = 1.0_dp
+				       call lagpol8(lagarg, lambda, f1, grid%nr, n, q, ingrid%nr)
+							 lagarg = 2*l+2
+				       call lagpol8(lagarg, lambda, f2, grid%nr, n, q, ingrid%nr)
+							 lagarg = 2*l+3
+				       call lagpol8(lagarg, lambda, f3, grid%nr, n, q, ingrid%nr)
+							 t1(:) = f1(:,k+l+1)
+							 t2(:) = f2(:,k+l-1+1)
+							 if ((k .eq. 1) .and. (l .eq. 0)) then
+							    t3(:) = 0.0_dp
+						   else
+							    t3(:) = f3(:,k+l-2+1)
+						   end if
+
+							 psi(:) = self%b(jj)%f(:)/J(:)
+
+							 psip(:) = -t2(:)*qp(:)*(gridr(:)**l)*(s2(:)**(k-1)) &
+							           + t1(:)*(dble(l)*(gridr(:)**(l-1))*(s2(:)**(k-1)) + &
+							                   ((gridr(:)**l)*dble((k-1))*(s2(:)**(k-2))*s2p(:)))
+
+							 psipp(:) = t3(:)*(qp(:)**2)*(gridr(:)**l)*(s2(:)**(k-1)) &
+							            -t2(:)*(qpp(:)*(gridr(:)**l)*(s2(:)**(k-1))  &
+							            + 2.0_dp*qp(:)*dble(l)*(gridr(:)**(l-1))*(s2(:)**(k-1)) &
+							            + 2.0_dp*qp(:)*(gridr(:)**l)*dble(k-1)*(s2(:)**(k-2))*s2p(:)) &
+							            + t1(:)*(2.0_dp*dble(l)*(gridr(:)**(l-1))*dble(k-1)*(s2(:)**(k-2))*s2p(:) &
+							            + (gridr(:)**l)*dble((k-1)*(k-2))*(s2(:)**(k-3))*s2p(:) &
+							            + (gridr(:)**l)*dble(k-1)*(s2(:)**(k-2))*s2pp(:))
+
+							 Jp(:) = J(:)*((-a/s2(:))*s2p(:) - (gam-e)*(s1(:)**(-2))*s1p(:))
+							 Jpp(:) = Jp(:)*(Jp(:)/J(:)) + J(:)*((a/(s2(:)**2))*(s2p(:)**2) &
+							 - (a/s2(:))*s2pp(:) + 2.0_dp*(gam-e)*(s1(:)**(-3))*(s1p(:)**2) &
+							 - (s1(:)**(-2))*s1pp(:)*(gam-e)) 
+
+							 Kb(:) = psi(:)*(Jpp(:) + (2.0_dp/gridr(:))*Jp(:) - &
+							 (dble(l*(l+1))/(gridr(:)**2))*J(:)) + &
+							 psip(:)*2.0_dp*(J(:)/gridr(:) + Jp(:)) + &
+							 psipp(:)*J(:) 
+							 Kb(:) = (-0.5_dp)*Kb(:)
+
+							 !Explicitly compute integral
+							 KMat(ii,jj) = sum(self%b(ii)%f(:)*Kb(:)*grid%weight(:))
+							 deallocate(f1, f2, f3)
+				    else
+							 KMat(ii,jj) = 0.0_dp
+						end if
+				 end do
+			end do
+
+	    deallocate(s1p, s1pp, s2p, s2pp, qp, qpp, Jp, Jpp)
+			deallocate(Kb, psip, psipp, t1, t2, t3, gridr, f1, f2, f3)
+	 end subroutine getConroyKMat
+
+	 
 
 
 
@@ -335,7 +599,7 @@ module basismodule
                      do q = -lambda, lambda
                         if (indata%harmop .eq. 0) then
                            angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dp*pi)) &
-                 	     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+                 	         *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
                         else if (indata%harmop .eq. 1) then
                  	         !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
                            angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
@@ -379,7 +643,6 @@ module basismodule
 	    nr = ingrid%nr
 
 
-	    print*, "COMPUTE RADIAL MATRIX ELEMENTS"
 	    !$OMP PARALLEL DO DEFAULT(none) PRIVATE(m, lambda, q, lambdaind, f, i1, i2) &
 	    !$OMP& SHARED(VPot, ingrid, basis, indata, nr, numrfuncs, VRadMatEl)
 	    do n = 1, numrfuncs
@@ -413,7 +676,7 @@ module basismodule
 	 !Note: handles both real and complex spherical harmonics. Formulas are the 
 	 !      same for appropriately calculated VPot and angular integrals
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata)
+	 subroutine getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata, use_list)
 	    implicit none
 	    integer, dimension(:):: sturm_ind_list
 	    integer:: num_func
@@ -423,25 +686,32 @@ module basismodule
 	    integer:: lambda, lambdaind, q
 	    integer:: ii,jj, n, m
 	    real(dp), dimension(:,:,:):: angular
-
+			logical:: use1, use2
+			logical, dimension(:):: use_list
 
 
 	    !!!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, n, m, lambdaind, lambda, q, integral) &
-	    !!!$OMP& SHARED(V, indata, num_func, rad_ind_list, nr, angular, pi)
+	    !!!$OMP& SHARED(V, indata, num_func, rad_ind_list, nr, angular, pi, use_list)
 	    do ii=1, num_func
 	       !print*, ii
 	       do jj = 1, num_func
 		        n = sturm_ind_list(ii)
 		        m = sturm_ind_list(jj)
 
-	          !Calculate V-matrix element for each lambda in the expansion
-		        lambdaind = 1
-		        do lambda = 0, indata%lambdamax
-		           do q = -lambda, lambda
-			            V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
-			            lambdaind = lambdaind + 1
+						use1 = use_list(ii)
+						use2 = use_list(jj)
+
+						if (use1 .and. use2) then
+	             !Calculate V-matrix element for each lambda in the expansion
+		           lambdaind = 1
+		           do lambda = 0, indata%lambdamax
+		              do q = -lambda, lambda
+			               V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
+			               lambdaind = lambdaind + 1
+		              end do
 		           end do
-		        end do
+						end if
+
 		        if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
 		           print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
 		           stop
@@ -532,7 +802,7 @@ module basismodule
 	 !Function: XLM
 	 !Purpose: evaluates the real spherical harmonics for theta and phi in radians
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-         real(dp) function XLM(l, m, theta, phi) result(res)
+      real(dp) function XLM(l, m, theta, phi) result(res)
 	    use numbers
 	    implicit none
 	    integer:: l, m
@@ -548,7 +818,7 @@ module basismodule
 	       !Special case, m=0 equivalent to theta=0, Ylm and Xlm coincide in this case.
 	       res = RYLM(l,m,theta)
 	    end if
-	 end function
+	 end function XLM
 
 
 
@@ -562,24 +832,120 @@ module basismodule
 	    implicit none
 	    real(dp):: l1, mu1, l2, mu2, l3, mu3 
 	    real(dp)::Yint
+	    real(dp):: val
+	    real(dp):: t1, t2
+	    real(dp), dimension(3):: muvals, lVals
+	    integer:: ii, numZero
+	    integer, dimension(3):: isZero
+	    real(dp):: templ, tempmu
+	    logical:: found
+	    !complex(dp):: v1, v2
 
+			!val = sqrt(3.0_dp/(4.0_dp*pi))*Yint(1.0_dp,1.0_dp,1.0_dp,1.0_dp,0.0_dp,0.0_dp)
+			!print*, val
+	    !stop
+
+	    !Use complete permutation symmetry of real gaunt coefficients to
+			!reduce calculation to one of several cases. 
+			!Case 1: mu1, mu2, mu3 all != 0
+	    !Case 2: mu3 = 0, mu2, mu1 != 0
+	    !Case 3: mu2 = mu3 = 0, mu1 != 0
+	    !Simpler formulas apply in each of these cases
 	    if (mod(int(l1+l2+l3),2) .ne. 0) then
 	       res = 0.0_dp
 	    else
-	       if ((abs(mu2) .gt. 0.0_dp) .and. (int(mu3) .eq. 0)) then
+				 muVals(1) = mu1
+				 muVals(2) = mu2
+				 muVals(3) = mu3
+				 lVals(1) = l1
+				 lVals(2) = l2
+				 lVals(3) = l3
+
+				 numZero = 0
+				 isZero(:) = 0
+				 do ii = 1, 3
+				    if (int(abs(muVals(ii))) .eq. 0) then
+				       isZero(ii) = 1
+						end if
+				 end do
+			   numZero = sum(isZero)
+ 
+	       if (numZero .eq. 1) then
+						found = .false.
+						ii = 1 
+						do while (isZero(ii) .ne. 1)
+						   ii = ii + 1
+				    end do
+						if (ii .ne. 3) then
+						   templ = l3
+						   tempmu = mu3
+				       l3 = lVals(ii)
+						   mu3 = muVals(ii)
+							 lVals(ii) = templ
+							 muVals(ii) = tempmu
+							 l1 = lVals(1)
+							 mu1 = muVals(1)
+							 l2 = lVals(2)
+							 mu2 = muVals(2)
+						end if
+
 	          res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2,l2,mu2,l3,0.0_dp) &
 	                *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
-	       else if ((int(mu2) .eq. 0) .and. (int(mu3) .eq. 0)) then
+	       else if (numZero .eq. 2) then
+						res = 0.0_dp
+				 else if (numZero .eq. 3) then
+            !found = .false.
+            !ii = 0
+            !do while (.not. found)
+            !   ii = ii + 1
+            !   if (int(abs(muVals(ii))) .ne. 0) then
+            !      found = .true.
+            !   end if
+            !end do
+            !if (ii .ne. 1) then
+            !   templ = lVals(ii)
+            !   tempmu = muVals(ii)
+            !   lVals(ii) = l1
+            !   muVals(ii) = mu1
+            !   l1 = templ
+            !   mu1 = tempmu
+            !   l2 = lVals(2)
+            !   mu2 = muVals(2)
+            !   l3 = lVals(3)
+            !   mu3 = muVals(3)
+            !end if
+            
 	          !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
-	          res = kronecker(int(mu1),0)*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
-	       else 
+	          res =  sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,0.0_dp,l2,0.0_dp,l3,0.0_dp)
+				 else if (numZero .eq. 0) then
 		        !Formula for overlap of Xlm in terms of overlap of Ylm
-		        res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
-		              *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
-		              *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
-			      *Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
-			      *VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
-				    res = -res
+						t1 = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
+		              *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2)*VCoeff(mu3,mu3))
+
+						t2 =2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3) &
+							 *REAL(conjg(VCoeff(mu2-mu3,mu1))*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
+				    !if ((abs(t1) .gt. 0.0_dp) .and. (abs(t2) .gt. 0.0_dp)) then
+						!	 print*, "ERROR", t1, t2
+						!	 v1 = VCoeff(mu2+mu3,mu1)
+						!	 v2 = VCoeff(mu2-mu3,mu1)
+            !  print*, v1, abs(mu1), abs(mu2+mu3)
+						!	 print*, v2, abs(mu1), abs(mu2-mu3)
+						!	 print*, "DONE"
+
+
+						!	 !print*, "ERROR: ", l1, mu1, l2, mu2, l3, mu3
+						!	 !print*, "Vals: ", mu1,  mu2+mu3, -mu2-mu3, mu2-mu3,mu3-mu2
+						!end if
+
+						res = t1 + t2
+		        !res = 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
+		        !      *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
+		        !      *VCoeff(mu3,mu3)) + 2.0_dp*sqrt((2.0_dp*l2+1.0_dp)/(4.0_dp*pi)) &
+			      !*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
+			      !*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
+				 else
+				    print*, "TREAT ALL CASES!!!"
+						stop
 	       end if
 	    end if
 
@@ -604,9 +970,11 @@ module basismodule
 
 	    i = (0.0_dp,1.0_dp)
 
-	    res = kronecker(int(m),0)*kronecker(int(mu),0) + (1.0_dp/sqrt(2.0_dp))*(heavyside(mu)*kronecker(int(m),int(mu)) &
-	          + heavyside(-mu)*(i)*((-1.0_dp)**m)*kronecker(int(m),int(mu)) + heavyside(-mu)*(-i)*kronecker(int(m),int(-mu)) &
-		  + heavyside(mu)*((-1.0_dp)**m)*kronecker(int(m),int(-mu)))
+	    res = kronecker(int(m),0)*kronecker(int(mu),0) &
+			      + (1.0_dp/sqrt(2.0_dp))*(heavyside(mu)*kronecker(int(m),int(mu)) &
+	          + heavyside(-mu)*(i)*((-1.0_dp)**m)*kronecker(int(m),int(mu)) &
+				    + heavyside(-mu)*(-i)*kronecker(int(m),int(-mu)) &
+		        + heavyside(mu)*((-1.0_dp)**m)*kronecker(int(m),int(-mu)))
 	 end function VCoeff
 
 

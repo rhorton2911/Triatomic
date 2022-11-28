@@ -6,5 +6,11 @@ energies.txt
 diatomicCase/
 mcccClasses/
 isoscelesCase/
+crashTesting/
 plotbasisfunc
+smallZ.txt
+conroyfunc.txt
+conroytest/
+Jfunc.txt
+equilateralCase/
 

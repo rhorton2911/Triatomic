@@ -1,19 +1,19 @@
 5     !N (Basis size)
 1     !Number of exponential fallof parameters in the next line
 2.0 2.0 0.25 0.1   !alpha (exponential falloff parameter)
-1     !Specified lmax of the basis set
+0     !Specified lmax of the basis set
 0.001   !dr (grid spacing)
 20.0  !rmax (maximum radius for the radial grid)
 6     !lambda max
 9     !m max (angular mom. proj)
-0     !Use real spherical harmonics (1=yes,0=no)
+1     !Use real spherical harmonics (1=yes,0=no)
 !!!!!!!!!!!!!!!Nuclear coordinates!!!!!!!!!!!!
 1     !z1 (charge of nucleus 1)
 1     !z2 (charge of nucleus 2)
 1     !z3 (charge of nucleus 3)
 1.0   !R1 (radius of nucleus 1)
 1.0   !R2 (radius of nucleus 2)
-1.0   !R3 (radius of nucleus 3)
+1.0    !R3 (radius of nucleus 3)
 0.0       !theta1 (degrees)
 120.0     !theta2 (degrees)
 120.0     !theta3 (degrees)
@@ -21,7 +21,10 @@
 90.0      !phi2 (degrees)
 -90.0     !phi3 (degrees)
 !!!!!!!!!!!Iscosceles Testing Mode!!!!!!!!!!!!!!
-1         !Run for test case (1=yes, 0 =normal run)
-R1       !Side length 1
-R2       !Side length 2
+1         !Run test case (1=yes, 0 =normal run)
+0         !Run using Hernandez geomtry (1=yes,0=no)
+0         !Restrict basis for test case (1=yes, 0=no)
+0         !Use conway basis instead (1=yes, 0=no)
+1.68       !Side length 1
+1.68       !Side length 2
 

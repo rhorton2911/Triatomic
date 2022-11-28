@@ -1,0 +1,54 @@
+#!/bin/bash -l
+
+#Script: runJob.script
+#Purpose: script for submitting a job to setonix. In this case to run
+#         the H3++ structure code within a particular series of directories on scratch
+#Usage: assumes this script is being called from the directory in which the code
+#       is to be run. 
+#Note: runs program several times over a grid of values within the one job. This is
+#      to avoid excessive job submission.
+
+
+#Specify resources required on setonix nodes using SLURM directives.
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --ntasks-per-node=2
+#SBATCH --cpus-per-task=10
+#SBATCH --time=00:12:00
+#SBATCH --export=NONE
+
+export OMP_NUM_THREADS=10
+export OMP_STACKSIZE=500m
+echo "Running H3++ structure"
+
+readarray -t Rvals2 < R2vals.txt
+R1=$(cat currR1Val)
+for R2 in ${Rvals2[@]}
+do
+   lessthan=$(echo "${R1} < 2.0*${R2}" | bc -l)
+   if (("$islessthan")); then
+      R1Val=$(echo "${R1}" | awk '{printf "%.2f", $0}')
+      R2Val=$(echo "${R2}" | awk '{printf "%.2f", $0}')
+                                                                                                                                                              
+      if ! [[ -d /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val} ]]; then
+         mkdir /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}
+      fi
+   
+      cat input > inputTemp 
+      sed -i "s/R1/${R1Val}/g" inputTemp
+      sed -i "s/R2/${R2Val}/g" inputTemp 
+
+      cp data.in /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}/
+      cp inputTemp /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}/input
+      rm inputTemp
+                                                                                                                                                              
+      cd /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}/
+      #Run main executable stored in higher directory
+      echo "Running: R1=${R1Val} and R2=${R2Val}"
+                                                                                                                                                              
+      srun -N 1 -n 1 --exclusive -c 10 $MYSCRATCH/isosceleseTest/H3Plus &
+
+      cd /software/projects/d35/rhorton/Triatomic
+   fi
+done
+wait

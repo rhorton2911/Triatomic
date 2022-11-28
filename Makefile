@@ -10,16 +10,18 @@ OBJ= $(MCCCOBJ) $(MYOBJ)
 FC=gfortran
 FLAGS= -Wall -Wno-tabs -pedantic  -fimplicit-none -fopenmp #-Werror
 ERRFLAGS1= -g -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division -fbounds-check
-ERRFLAGS= $(ERRFLAGS1) -Wsurprising --fpe-trap=invalid,zero,overflow,underflow -fstack-check 
+ERRFLAGS= $(ERRFLAGS1) -Wsurprising  -fstack-check #--fpe-trap=invalid,zero,overflow
+
+#UNDERFLOW FLAGS OFF!!!!!!!
 
 #Comment out when not debugging
-CFLAGS=$(FLAGS) $(ERRFLAGS)
+CFLAGS=$(FLAGS)  $(ERRFLAGS)
 
 all: $(EXEC)
 
 #Linking step: link all compiled files into an executable. 
 $(EXEC): $(OBJ)
-	$(FC) $(CFLAGS) $(OBJ) -o $(EXEC)
+	$(FC) $(CFLAGS) $(OBJ) -llapack -o $(EXEC)
 
 #Compiling step: call to objects in OBJ in the linking step causes these
 #the be called to generate the object files.

@@ -19,6 +19,8 @@ Rvals2=$(seq 0.2 0.4 7.0)
 cd /scratch/d35/rhorton/isosceleseTest/
 rm R1vals.txt
 rm R2vals.txt
+#Write energies to files for use in other scripts, avoids
+#energy arrays being defined in mutiple places
 for R1 in ${Rvals1[@]}
 do
    echo "$R1" >> R1vals.txt
@@ -27,6 +29,7 @@ for R2 in ${Rvals2[@]}
 do
    echo "$R2" >> R2vals.txt
 done
+
 cd $MYSOFTWARE/Triatomic/
 
 #Declare array to save job IDs
@@ -35,38 +38,13 @@ idInd=0
 
 for R1 in ${Rvals1[@]}
 do 
-   for R2 in ${Rvals2[@]}
-   do
-			islessthan=$(echo "${R1} < 2.0*${R2}" | bc -l)
-			if (("$islessthan")); then
-         R1Val=$(echo "${R1}" | awk '{printf "%.2f", $0}')
-         R2Val=$(echo "${R2}" | awk '{printf "%.2f", $0}')
-
-         if ! [[ -d /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val} ]]; then
-            mkdir /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}
-         fi
-
-				 cat input > inputTemp 
-         sed -i "s/R1/${R1Val}/g" inputTemp
-         sed -i "s/R2/${R2Val}/g" inputTemp 
-
-         cp data.in /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}/
-         cp inputTemp /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}/input
-				 rm inputTemp
-
-         cd /scratch/d35/rhorton/isosceleseTest/R1${R1Val}R2${R2Val}/
-         #Run main executable stored in higher directory
-         echo "Running: R1=${R1Val} and R2=${R2Val}"
-
-         #jobId=$(sbatch --partition=work -J H3++R1${R1}R2${R2} --error=H3++R1${R1}R2${R2}.err $MYSOFTWARE/Triatomic/jobscripts/runJob.script | cut -f 4 -d ' ')
-         idArray[${idInd}]="$jobId"
-         idInd=$((idInd+1))
-
-         cd /software/projects/d35/rhorton/Triatomic
-			fi
-	 done
+	 #Value of R1 used in runJob.script
+	 echo "$R1" > currR1Val
+   jobId=$(sbatch --partition=work -J H3++R1=${R1} --error=H3++R1=${R1}.err $MYSOFTWARE/Triatomic/jobscripts/packjobscripts/runJobPack.script | cut -f 4 -d ' ')
+   idArray[${idInd}]="$jobId"
+   idInd=$((idInd+1))
+	 rm currR1Val
 done
-
 
 #Setup list of depencencies for final cleanup script, slurm format is jobId:jobId:jobId:etc for all required jobs
 rm /scratch/d35/rhorton/isosceleseTest/jobIdFile
@@ -77,6 +55,8 @@ do
    dependencies+=":${id}"
 done
 
+#The following two scripts either collect all the data produced into usable output files, or produce a list of failed jobs, depending on whether or
+#not all jobs were successful.
 sbatch --dependency=afterok"${dependencies}"  --partition=work -J H3++Cleanup $MYSOFTWARE/Triatomic/jobscripts/runDataCollect.script
 sbatch --dependency=afterany"${dependencies}" --partition=work --time=00:01:00 -J H3++Errors $MYSOFTWARE/Triatomic/jobscripts/checkerrors.sh
 
