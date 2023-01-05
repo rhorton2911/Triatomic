@@ -5,15 +5,15 @@ module input_data
 
   type input
      character(len=10):: target        ! target label
-     real(dp):: energy              ! incident energy in au
+     real(dpf):: energy              ! incident energy in au
      integer:: calculation_type   ! Coordinate system/radial basis type. 0: spherical/nonorthogonal; 1: spherical/orthogonal; 2: spheroidal/orthogonal
      integer :: calculation_mode  ! 0:structure only; 1:scattering; 2:scattering+DCS
-     real(dp):: Rd,origin           ! distance between two nuclei
-     real(dp):: Z1,Z2            ! (one) nuclear charge
-     real(dp):: Zasym               ! molecule charge asymmtery (2*Z(nuclear) - N(electrons))
-     real(dp):: Zplus, Zminus       !spheroidal Zplus and Zminus parameters
-     real(dp):: Zproj               ! The charge of projectile. 1.0 = positron, -1.0 = electron
-     real(dp):: C                   ! the speed of light
+     real(dpf):: Rd,origin           ! distance between two nuclei
+     real(dpf):: Z1,Z2            ! (one) nuclear charge
+     real(dpf):: Zasym               ! molecule charge asymmtery (2*Z(nuclear) - N(electrons))
+     real(dpf):: Zplus, Zminus       !spheroidal Zplus and Zminus parameters
+     real(dpf):: Zproj               ! The charge of projectile. 1.0 = positron, -1.0 = electron
+     real(dpf):: C                   ! the speed of light
      integer:: la_core            ! maximum value of l for atom core orbitals 
      integer, dimension(:), pointer:: npr_core  ! principal quantum number  for last core orbital for each l
 
@@ -22,36 +22,36 @@ module input_data
 !!$ MSC_nconfig > 0 Used for second diagonalisation.
      integer:: labot, latop       ! minimum value of atom l, maximum value of atom l 
      integer, dimension(:), allocatable :: nps     ! number of functions for each l
-     real(dp),  dimension(:), allocatable ::  alpha  ! exp.fall-off for each l
+     real(dpf),  dimension(:), allocatable ::  alpha  ! exp.fall-off for each l
 !!$ Molecular State Configuration: 
 !!$ Diagonalisation of the one-electron ion produced MS to replace one-electron configurations.
 !!$ For second diagonalisation Molelcar states replaced corresponding Laguerre basis functions below.
      integer:: MSC_nconfig                  ! Number of one-electron configurations replaced with Molecular ion States
      integer :: use_MSC, use_sub
 !!$ Different alpha
-     real(dp), allocatable, dimension(:,:):: alpha_nl  ! Storage of alpha n,l functions
+     real(dpf), allocatable, dimension(:,:):: alpha_nl  ! Storage of alpha n,l functions
      integer :: labot_diff, latop_diff
      integer, allocatable, dimension(:):: nps_diff
-     real(dp), allocatable, dimension(:):: alpha_diff
+     real(dpf), allocatable, dimension(:):: alpha_diff
 !!$
      integer::  Mtot_start, Mtot_stop  ! starting and finishing value for the total ang. mom
      integer:: ipar               ! 1 or -1   only this parity to be calculated, 0 if both are calc.
      integer:: nent             ! number if incident states
      integer:: iborn              ! 0 if no analytical Born subtraction is used, 1 if use it, 2 if want to output Born amplitudes
-     real(dp):: rmax                ! max value of radial grid
-     real(dp):: qmax                ! max value of momentum that can be integrated accurately
+     real(dpf):: rmax                ! max value of radial grid
+     real(dpf):: qmax                ! max value of momentum that can be integrated accurately
      integer:: ndouble            ! number of doubling in rgrid
      integer:: npdbl              ! the number of points with the same dx per interval
      integer:: npwave             ! the number of points per oscillation
      integer:: ltmax              ! maximum l in v(1,2) expansion: rpow module
-     real(dp):: formcut
-     real(dp):: regcut
-     real(dp):: expcut
+     real(dpf):: formcut
+     real(dpf):: regcut
+     real(dpf):: expcut
      integer :: iweight
-     real(dp):: corep               ! one-electron pol.potential parameters
-     real(dp):: r0                  ! one-electron pol.potential parameters
-     real(dp):: gamma               ! di-electron pol.potential parameters
-     real(dp):: rho                 ! di-electron pol.potential parameters
+     real(dpf):: corep               ! one-electron pol.potential parameters
+     real(dpf):: r0                  ! one-electron pol.potential parameters
+     real(dpf):: gamma               ! di-electron pol.potential parameters
+     real(dpf):: rho                 ! di-electron pol.potential parameters
      integer :: irec              ! =1 to reconstruct the wf and calculate Zeff
      integer:: iosc               ! =0 no osc.str., =1 absorption osc. str., =2 emission osc.str
      integer:: iSlater  ! =1 if Slater core exchange, =0 if full f.c. exchange  
@@ -60,19 +60,19 @@ module input_data
      integer:: idistpot           ! =0 for plane-waves, =N for distorted-waves, N is a state number
      integer:: Ldw           ! max L value for DW
      integer:: ndw           ! number of functions to be used in diogonalization for DW
-     real(dp):: aldw           ! exp. fall-off for DW
+     real(dpf):: aldw           ! exp. fall-off for DW
      integer:: ifirst              ! =0 for no exchange, =1 for exchange, =-1 for first order calc., =-10 this sets iAnalitBorn =1 and ifirst=-1
      logical :: exchange
      integer:: iAnalitBorb   ! =0, =1 to stop teh code after Analitical Born cross sections
-     real(dp):: theta                ! theta - nonuniquence
+     real(dpf):: theta                ! theta - nonuniquence
      integer:: inc                ! inc:  =1 for calling rearrange and =0 for not calling it
      integer:: Lpmax                ! max value of L for projectile electron
      integer:: Lmaxkg                ! kgrid: max projectile orbital ang. mom.
      integer, dimension(:), allocatable :: NBND               ! kgrid: number of bound states in dist. potential
      integer, dimension(:,:), allocatable :: nk ! nk(i,l) : kgrid: interval description, number of points
-     real(dp), dimension(:,:), allocatable ::  sk  !  sk(i,l) : kgrid: interval description, boundary value
+     real(dpf), dimension(:,:), allocatable ::  sk  !  sk(i,l) : kgrid: interval description, boundary value
      integer:: orient              ! 1 for fixed orientation, 0 for orientation averaging of molecule
-     real(dp):: thrad, phrad   ! incident electron angles (degrees) in the body frame
+     real(dpf):: thrad, phrad   ! incident electron angles (degrees) in the body frame
 
      logical :: combine_potl_files
 
@@ -81,7 +81,7 @@ module input_data
      integer:: lbnd_max   ! max value of L for which bound states of asymptotic potential (Zasym/r + V_{dw}(r) should be calculated
      logical:: non_uniq   ! We solve for non-uniqueness. ifirst = 1, theta /= 0 and Zproj == -1d0
      
-     real(dp):: CI_min   ! minimum value for CI coef.: in 2-elelctron structure code: if |CI| < CI_min it will be set to zero 
+     real(dpf):: CI_min   ! minimum value for CI coef.: in 2-elelctron structure code: if |CI| < CI_min it will be set to zero 
 
      integer :: l_ion_core, l12max, M12max, Mmax2el
      integer, dimension(:), allocatable :: n_ion_core, nkin, nkout
@@ -94,14 +94,14 @@ module input_data
      integer:: lpbot, lptop                     ! min and max l of Ps
      integer, dimension(:), allocatable:: npbot, nptop  ! n for each l of Ps
      integer, dimension(:), allocatable:: npsp          ! basis size N for each l of Ps
-     real(dp), dimension(:), allocatable::  alphap        ! fall of parameter of Ps states
+     real(dpf), dimension(:), allocatable::  alphap        ! fall of parameter of Ps states
      integer::   igz, igp                           ! number of points for z-integration, ipg - for composite mesh xgp    
      logical:: analyticd, numericalv                !  to switch between analytic and numerical calculations
      integer:: lstoppos ! no calculations of Ps-formation for for ! J>lsstoppos
 !!! end of Ps input data
 
-     real(dp) :: eV
-     real(dp) :: eV_old
+     real(dpf) :: eV
+     real(dpf) :: eV_old
      
      logical :: print_1el_basis, print_2el_config, print_CI, print_dipole, print_channel_timing, print_pol_contribution
 
@@ -110,8 +110,8 @@ module input_data
      logical :: new_input_format
      logical :: pwborn, UBA
      logical :: pseudo_pot
-     real(dp), dimension(0:2) :: pseudo_pot_B, pseudo_pot_Beta 
-     real(dp) :: core_energy
+     real(dpf), dimension(0:2) :: pseudo_pot_B, pseudo_pot_Beta 
+     real(dpf) :: core_energy
 
      logical :: skip_vmat
      logical :: optical
@@ -122,7 +122,7 @@ module input_data
      logical :: load_balance, read_channel_timing
      integer :: NP
      logical :: spectro_core
-     real(dp) :: SF_tol
+     real(dpf) :: SF_tol
      logical :: print_vmatrix
      logical :: print_BornME
      logical :: print_halfk
@@ -134,7 +134,7 @@ module input_data
   type basis_input
      integer :: labot,latop, mabot,matop
      integer, dimension(:), allocatable :: nps
-     real(dp), dimension(:), allocatable :: alpha
+     real(dpf), dimension(:), allocatable :: alpha
   end type basis_input
 
 
@@ -228,10 +228,10 @@ contains
     logical:: ex
     integer:: iostat_data, icheck
     integer:: l, latop,labot
-    real(dp):: en_eV, eV
+    real(dpf):: en_eV, eV
     integer:: Ltt, LSW, LSW_prev, i, NBNDt, Lbot
     integer :: nkt
-    real(dp) :: skt
+    real(dpf) :: skt
     integer:: n, n_elec 
     character(len=50) :: tempchar
     character(len=9) :: projectile
@@ -244,7 +244,7 @@ contains
     character(len=255) :: block, blockname, label, w1, w2, w3
     logical :: eof, templ, templ1, templ2
     logical :: scattering, use_sub, born, exchange, inc, distpot
-    real(dp) :: tempr
+    real(dpf) :: tempr
     integer :: tempi, tempi1, M, par_start, par_stop
     integer, dimension(:), allocatable :: L_k_input
 
@@ -2105,7 +2105,7 @@ contains
     logical:: ex
     integer:: iostat_data, icheck, LSW_old
     integer:: l, m, mpiwrite, latop,labot
-    real(dp):: en_eV, eV
+    real(dpf):: en_eV, eV
     integer:: Ltt, LSW, i, mint, NBNDt, Lmaxkgt, Lbot
     integer, dimension(:), allocatable:: nkt
     real, dimension(:), allocatable:: skt
@@ -2745,7 +2745,7 @@ contains
 
     logical:: ex, op
     integer:: i, l, m, mint, Lmaxkgt, Ltt, LL, lprint, Ltt_max, calc_type
-    real(dp):: eV
+    real(dpf):: eV
 
     eV = self%eV  !  27.2116
     calc_type = self%calculation_type
@@ -3383,7 +3383,7 @@ subroutine nitem_error(w,block)
   subroutine invalid_argument_r(label, block, r)
     implicit none
     character(len=*), intent(in) :: label, block
-    real(dp), intent(in) :: r
+    real(dpf), intent(in) :: r
     character(len=100) :: arg
 
     write(arg,*) r
@@ -3480,7 +3480,7 @@ subroutine read_block(block,blockname,core_input)
     use input_parser
     implicit none
     integer, intent(in) :: latop
-    real(dp), dimension(0:latop), intent(out) :: alpha
+    real(dpf), dimension(0:latop), intent(out) :: alpha
     character(len=*), intent(in) :: block
     character(len=100) :: tempc
     character(len=:), allocatable :: tempc1

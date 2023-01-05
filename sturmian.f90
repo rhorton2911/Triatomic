@@ -1,5 +1,6 @@
 module sturmian_class
  
+  use numbers
   integer, parameter:: Nonrel=0, Rel=1
 
   public::  new_basis, copy_basis, init_function, copy, multiply_byscalar, construct, construct_spheroidal, destruct, combine_basis, basis_size, get_k, get_ang_mom, get_ang_mom_proj, get_max_L, value, get_minf, get_maxf, fpointer, me_1el, ovlp3_nr, get_energy, print_energy, sort_by_energy, print_wf, ovlp, set_k, set_ang_mom_prog, get_alpha, integral_oidJ, integration_bounds
@@ -655,6 +656,184 @@ contains
 
 
   end subroutine construct_all_nr
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!Subroutine: contstruct_all_nr_m
+	!Purpose: calculates a sturmian basis, resolved in (k,l,m)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine construct_all_nr_m(self, dataARG)
+
+    use grid_radial
+    use input_data
+    use MPI_module
+
+    implicit none
+
+    type(basis_sturmian_nr), intent(inout):: self
+	  type(basis_sturmian_nr):: selftemp
+    type(input), intent(in):: dataARG  
+
+    integer:: i, j, k, i1, i2, kn, nall, l, labot, latop, n, la, nsp, ni, nj, li, lj, mi, mj
+    real*8:: f8(grid%nr,MAXVAL(dataARG%nps(dataARG%labot:dataARG%latop))), x, tmp
+    real*8, dimension(grid%nr):: temp   
+    real*8:: lambda, lagarg
+    real*8, pointer, dimension(:):: weight, gridr
+    integer:: ortog, m
+
+	  integer:: ii, lPrev, ind, kk, jj
+	  integer:: counter
+	  real*8:: alpha
+
+		nall = 0
+    labot = dataARG%labot
+    latop = dataARG%latop
+		do ii = labot, latop
+		 	nall = nall + dataARG%nps(ii)*(2*ii+1)
+		end do
+
+	  call new_basis(self,nall)
+
+	  !call construct_all_nr to construct sturmian basis as per usual. 
+	  call construct_all_nr(selftemp,dataARG)
+	  counter = 1
+	  do ii = 1, selftemp%n
+			 l = selftemp%b(ii)%l
+			 if (l .ne. lPrev) then
+			    do m = -l, l
+   			    do jj = 1, data_in%nps(l)
+						   kk = jj 
+						   ind=ii+kk-1
+						   alpha = get_alpha(selftemp%b(ind))
+						   i1 = get_minf_nr(selftemp%b(ind))
+						   i2 = get_maxf_nr(selftemp%b(ind))
+                   
+               call init_function_nr_m(self%b(counter), l, m, kk, alpha, i1, i2, selftemp%b(ind)%f, grid%nr)
+
+							 counter = counter + 1
+   					end do
+				  end do
+   
+			    lPrev = l
+			 end if
+	  end do
+	  self%n = counter-1
+
+	  !Uncomment to check basis ordering
+	  !do ii = 1, self%n
+		!	 print*, self%b(ii)%l, self%b(ii)%m, self%b(ii)%k
+	  !end do
+	  !stop
+	  
+    call destruct_nr(selftemp)
+
+	  !Calculate the new overlap matrix, new basis should be ordered in
+		!blocks: l, m=-l,l and k=1,N_lm
+    call getBMatM(self%ortint,self)
+	  
+    if (myid == 0) then
+		   print*, 'Created radial basis with n=',nall, ' Sturmian functions for angular momentum from ',labot, 'to ',latop &
+					     ,'and m=-l to l'
+	  end if
+
+  end subroutine construct_all_nr_m
+!
+
+
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getBMatM
+	 !Purpose: calculates the overlap matrix (B) elements for a non-orthogonal Laguerre basis
+	 !         resolved in all three indices (k,l,m). i.e. Phi = (1/r)phi_kl(r)X_lm(theta,phi)
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getBMatM(B,self)
+			implicit none
+      type(basis_sturmian_nr), intent(inout):: self
+			real(dpf), dimension(:,:):: B  !Overlap matrix
+			integer:: ii, l, m, k, n
+
+      !Define B as before, but now need to ensure it is block diagonal in m also
+      B(:,:) = 0.0_dpf
+			n = self%n
+      do ii = 1, n
+         B(ii,ii) = 1.0_dpf
+         l=self%b(ii)%l
+   	     m=self%b(ii)%m
+         k=self%b(ii)%k
+         if ((self%b(ii+1)%l .ne. l) .or. (self%b(ii+1)%m .ne. m)) then
+            cycle
+         end if
+         !Formula for upper diagonal B matrix elements, B is symmetric
+         B(ii,ii+1) = (-0.5_dpf)*sqrt(1.0_dpf-dble(l*(l+1))/dble((k+1+l)*(k+l)))
+         B(ii+1,ii) = B(ii,ii+1)
+      end do
+      B(n,n)= 1.0_dpf
+
+	 end subroutine getBMatM
+
+
+
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: getKMatM
+	 !Purpose: calculates the one-electron K matrix elements for a non-orthogonal Laguerre
+	 !         resolved in all three indices (k,l,m). i.e. Phi = (1/r)phi_kl(r)X_lm(theta,phi)
+	 !         Takes pre-calculated overlap matrix B as input as K elements are proportional
+	 !         to B elements
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine getKMatM(KMat, B, self)
+	    use input_data  !Defines global data_in
+			implicit none
+      type(basis_sturmian_nr), intent(inout):: self
+			real(dpf), dimension(:,:), allocatable:: KMat
+			real(dpf), dimension(:,:):: B
+			integer:: n
+			real(dpf):: alphal
+			integer:: l, ii, jj, kk, lblocksize
+
+			n = self%n
+			allocate(KMat(n,n))
+
+      !K-matrix elements: analytical formula 
+      !K matrix is block diagonal in m and in l
+      !l specifies a block and m specifies a particular sub-block
+      KMat(:,:) = 0.0_dpf
+      do ii = 1, self%n
+         l = self%b(ii)%l
+         alphal=data_in%alpha(l)
+         KMat(ii,ii) = (alphal**2)
+      end do
+
+      l = -1
+      jj=0
+      kk=0
+      lblocksize=0
+      do ii = 1, self%n
+         if (l .eq. self%b(ii)%l) then
+         	 cycle
+         end if
+         l = self%b(ii)%l
+         alphal = data_in%alpha(l)
+         !Assuming we choose the same range of k for each m at a given l
+         lblocksize = data_in%nps(l)*(2*l+1)
+         jj=kk+1
+         kk = kk + lblocksize
+         KMat(jj:kk,jj:kk) = KMat(jj:kk,jj:kk) - 0.5_dpf*(alphal**2)*B(jj:kk,jj:kk)
+      end do
+
+	 end subroutine getKMatM
+
+
+
+
+
+
+
+
+
+
 !
 !
   subroutine construct_all_alpha_nr(self, dataARG, alpha_nl)

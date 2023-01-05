@@ -5,6 +5,7 @@ basis.txt
 energies.txt
 diatomicCase/
 mcccClasses/
+mcccfiles/
 isoscelesCase/
 crashTesting/
 plotbasisfunc

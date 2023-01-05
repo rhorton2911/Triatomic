@@ -67,7 +67,7 @@ MODULE Data_Module
 !                   Some Constants and Units
 !---------------------------------------------------------------------
 !
-   !REAL(idp)                              ::          pi    = 3.141592653589793238462643383276D0 
+   REAL(idp)                              ::          pi    = 3.141592653589793238462643383276D0 
    REAL(idp)                              ::          two_pi= 6.283185307179586476925286766552D0 
    REAL(idp)                              ::          zero    =  0.D0
    REAL(idp)                              ::          quarter = .25D0
@@ -144,6 +144,7 @@ END MODULE Data_Module
                            MODULE Matrix_Print
 !
                            use numbers
+													 use accuracy
 
                            IMPLICIT NONE
 !
@@ -164,7 +165,7 @@ END MODULE Data_Module
 !deck Print_Matrix_d
   subroutine Print_Matrix_d(a,n,m,iout,frmt,title,collab,rowlab)
   implicit none
-  REAL(dp), DIMENSION(:,:)                   :: a
+  REAL(idp), DIMENSION(:,:)                   :: a
   INTEGER                                  :: n
   INTEGER                                  :: m
   INTEGER                                  :: iout
@@ -248,7 +249,7 @@ end subroutine  Print_Matrix_d
 !deck Print_Matrix_z
   subroutine Print_Matrix_z(a,n,m,iout,frmt,title,collab,rowlab)
   implicit none
-  COMPLEX(dp), DIMENSION(:,:)               :: a
+  COMPLEX(idp), DIMENSION(:,:)               :: a
   INTEGER                                  :: n
   INTEGER                                  :: m
   INTEGER                                  :: iout
@@ -332,7 +333,7 @@ end subroutine  Print_Matrix_z
 !deck Print_Triangle_Matrix_d
   subroutine Print_Triangle_Matrix_d(a,n,iout,frmt,title,collab)
   implicit none
-  REAL(dp), DIMENSION (:)                    :: a
+  REAL(idp), DIMENSION (:)                    :: a
   INTEGER                                  :: n
   INTEGER                                  :: iout
   CHARACTER(LEN=*), OPTIONAL               :: frmt
@@ -398,7 +399,7 @@ end subroutine  Print_Triangle_Matrix_d
 !deck Print_Triangle_Matrix_z
   subroutine Print_Triangle_Matrix_z(a,n,iout,frmt,title,collab)
   implicit none
-  COMPLEX(dp), DIMENSION (:)                :: a
+  COMPLEX(idp), DIMENSION (:)                :: a
   INTEGER                                  :: n
   INTEGER                                  :: iout
   CHARACTER(LEN=*), OPTIONAL               :: frmt
@@ -464,7 +465,7 @@ end subroutine  Print_Triangle_Matrix_z
 !deck Print_Vector_d
   subroutine Print_Vector_d(a,iout,frmt,title,collab)
   implicit none
-  REAL(dp), DIMENSION (:)                    :: a
+  REAL(idp), DIMENSION (:)                    :: a
   INTEGER                                  :: iout
   CHARACTER(LEN=*), OPTIONAL               :: frmt
   CHARACTER(LEN=*), OPTIONAL               :: title
@@ -502,7 +503,7 @@ end subroutine  Print_Vector_d
 !deck Print_Vector_z
   subroutine Print_Vector_z(a,iout,frmt,title,collab)
   implicit none
-  COMPLEX(dp), DIMENSION (:)                :: a
+  COMPLEX(idp), DIMENSION (:)                :: a
   INTEGER                                  :: iout
   CHARACTER(LEN=*), OPTIONAL               :: frmt
   CHARACTER(LEN=*), OPTIONAL               :: title

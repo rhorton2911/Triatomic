@@ -15,8 +15,8 @@ module target_data
   type target_params
      integer :: nMax, lMax, mMax
 
-     real(dp), dimension(:,:,:), pointer :: en_exact, sep_exact
-     real(dp), dimension(:,:,:,:,:,:), pointer :: osc_exact
+     real(dpf), dimension(:,:,:), pointer :: en_exact, sep_exact
+     real(dpf), dimension(:,:,:,:,:,:), pointer :: osc_exact
      integer, dimension(:,:,:), pointer :: en_ref, sep_ref
      integer, dimension(:,:,:,:,:,:), pointer :: osc_ref
   end type target_params
@@ -34,7 +34,7 @@ subroutine get_target_energy( self, n, l, mDeg, en_exact, en_ref )
   implicit none
   type(target_params), intent(in) :: self
   integer, intent(in) :: n, l, mDeg
-  real(dp), intent(out) :: en_exact
+  real(dpf), intent(out) :: en_exact
   integer, intent(out) :: en_ref
 
   integer :: m
@@ -60,7 +60,7 @@ subroutine get_target_oscstr( self, nL,lL,mLDeg, nR,lR,mRDeg, osc_exact, osc_ref
   implicit none
   type(target_params), intent(in) :: self
   integer, intent(in):: nL,lL,mLDeg, nR,lR,mRDeg
-  real(dp), intent(out):: osc_exact
+  real(dpf), intent(out):: osc_exact
   integer, intent(out):: osc_ref
 
   integer :: mL, mR
@@ -88,7 +88,7 @@ subroutine get_target_sepconst( self, n, l, mDeg, sep_exact, sep_ref )
   implicit none
   type(target_params), intent(in) :: self
   integer, intent(in) :: n, l, mDeg
-  real(dp), intent(out) :: sep_exact
+  real(dpf), intent(out) :: sep_exact
   integer, intent(out) :: sep_ref
 
   integer :: m

@@ -17,18 +17,18 @@ module harms
       !         arguments and l,m values as a double precision real
       !Input: theta and phi in radians, l and m as integers
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      complex(dp) function Ylm(theta, phi, l, m) result(harm)
-	 use numbers
-	 implicit none
-	 real(dp):: ctheta !cosine of theta
-         real(dp):: theta, phi
-	 integer:: l, m
-	 integer(kind=largeInt):: denom
+      complex(dpf) function Ylm(theta, phi, l, m) result(harm)
+	       use numbers
+	       implicit none
+	       real(dpf):: ctheta !cosine of theta
+               real(dpf):: theta, phi
+	       integer:: l, m
+	       integer(kind=largeInt):: denom
 
-	 ctheta = cos(theta)
-	 denom = getDenom(l,m)
-	 coeff = sqrt(      /dble(denom))
-	 harm = coeff*legendre(ctheta,l,m)*exp(i*dble(m)*phi)
+	       ctheta = cos(theta)
+	       denom = getDenom(l,m)
+	       coeff = sqrt(      /dble(denom))
+	       harm = coeff*legendre(ctheta,l,m)*exp(i*dble(m)*phi)
 
       end function Ylm
 
@@ -40,15 +40,15 @@ module harms
       !         with the given argument
       !Input: value u from -1, 1 with integers (l,m)
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      real(dp) function legendre(u,l,m) result(leg)
+      real(dpf) function legendre(u,l,m) result(leg)
          use numbers
-	 real(dp):: u  !Argument lying on the unit interval
-	 integer:: l, m   !Angular momentum quantum numbers
+	       real(dpf):: u  !Argument lying on the unit interval
+	       integer:: l, m   !Angular momentum quantum numbers
 
-	 if (abs(u) .gt. 1) then
-	    print*, "ERROR: argument to legendre function has magnitude greater than 1. Stopping."
-	    stop
-	 end if
+	       if (abs(u) .gt. 1) then
+	          print*, "ERROR: argument to legendre function has magnitude greater than 1. Stopping."
+	          stop
+	       end if
 
       end function legendre
 
@@ -62,25 +62,25 @@ module harms
       !         definition.
       !Input: requires l .ge. 0 and m .ge. 0
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      real(dp) function getCoeff(l,m) result(coeff)
-	 use numbers
-	 integer:: l,m
-	 integer:: ii
-	 integer(kind=largeInt):: denom
+      real(dpf) function getCoeff(l,m) result(coeff)
+	       use numbers
+	       integer:: l,m
+	       integer:: ii
+	       integer(kind=largeInt):: denom
 
-	 if (m .lt. 0) then
-	    print*, "ERROR: normalisation coefficients for spherical harmonics defined only for positive m. Stopping"
-	    stop
-	 end if
+	       if (m .lt. 0) then
+	          print*, "ERROR: normalisation coefficients for spherical harmonics defined only for positive m. Stopping"
+	          stop
+	       end if
 
-	 denom = 1
-	 if (m .gt. 0) then
-	    do ii = l-m+1, l+m
-	       denom = denom*ii
-	    end do
-	 end if
+	       denom = 1
+	       if (m .gt. 0) then
+	          do ii = l-m+1, l+m
+	             denom = denom*ii
+	          end do
+	       end if
 
-	 coeff = ((-1.0dp)**m)*sqrt(dble(2*l+1)/4*pi)*sqrt(1.0_dp/dble(denom)) 
+	       coeff = ((-1.0dpf)**m)*sqrt(dble(2*l+1)/4*pi)*sqrt(1.0_dpf/dble(denom)) 
 
       end function
 

@@ -7,26 +7,26 @@ module grid_radial
  type rgrid
     integer:: npwave                      ! the number of points per oscillation
     integer:: npdbl                       ! the number of points with the same dx per interval
-    real(dp):: rmax                         ! maximum value of r
-    real(dp):: qmax                         ! maximum value of q for which integration is accurate
+    real(dpf):: rmax                         ! maximum value of r
+    real(dpf):: qmax                         ! maximum value of q for which integration is accurate
     integer:: ndouble                     ! number of doubling
-    real(dp):: formcut
-    real(dp):: regcut
-    real(dp):: expcut
+    real(dpf):: formcut
+    real(dpf):: regcut
+    real(dpf):: expcut
 ! the above parameters are used to set up r-grid decribed below
-    real(dp), dimension(:), pointer:: gridr   ! r-grid values
-    real(dp), dimension(:), pointer:: weight  ! r-grid weights for Simpson rule
-    real(dp), dimension(:), pointer:: dr      ! dr(i) = grid(i) - grid(i-1)
-    real(dp), dimension(:), pointer:: dr_on_three, dr_three_on_eight
-    real(dp), dimension(:), pointer:: bool    ! r-grid weights for Bool rule
+    real(dpf), dimension(:), pointer:: gridr   ! r-grid values
+    real(dpf), dimension(:), pointer:: weight  ! r-grid weights for Simpson rule
+    real(dpf), dimension(:), pointer:: dr      ! dr(i) = grid(i) - grid(i-1)
+    real(dpf), dimension(:), pointer:: dr_on_three, dr_three_on_eight
+    real(dpf), dimension(:), pointer:: bool    ! r-grid weights for Bool rule
     integer:: nr                          ! number of points in r-grid
     integer, dimension(:), pointer:: jdouble ! j points where dx doubles
  
 ! rpow_f(r,l) = r**l, rpow_g(r,l) = 1/r**(l+1)
 ! i2_f = nr,  i1_g = 1
     integer:: ltmax                       ! used to set up arrays power_f(i,l) and power_g(i,l) for e-e Coulomb potential integration
-    real(dp), dimension(:,:), allocatable :: rpow_f, rpow_g
-    real(dp), dimension(:,:), pointer :: LegendreP, LegendreQ
+    real(dpf), dimension(:,:), allocatable :: rpow_f, rpow_g
+    real(dpf), dimension(:,:), pointer :: LegendreP, LegendreQ
     integer, dimension(:), allocatable:: i1_f,i2_g, i1_P,i2_Q
 ! note that i1_g = 1, and i2_f = nr
     
@@ -74,12 +74,12 @@ subroutine setgrids(self)
    type(rgrid) self
 
    integer:: npwave, npdbl, nleft, j, nj, nd, max_nj, jb, i1,i2
-   real(dp):: hmax, hmin, rdble, rleft, r, dr
+   real(dpf):: hmax, hmin, rdble, rleft, r, dr
    integer:: lna, nlimit
 !!$ Resetting data_in%Rd at an exact grid point 
    integer:: point_count, interv_n, interv_n_min, interv_n_max
-   real(dp):: diff_i, diff_f, temp_n
-   real(dp):: rdble_interv
+   real(dpf):: diff_i, diff_f, temp_n
+   real(dpf):: rdble_interv
 
 
 ! This is r-grid parameters used in setgrids(grid)
@@ -379,8 +379,8 @@ subroutine Legendre_construct(self, Rd)
 
   type(rgrid), intent(inout) :: self
   integer :: n
-  real(dp), intent(in) :: Rd
-  real(dp) :: Ron2, tmp
+  real(dpf), intent(in) :: Rd
+  real(dpf) :: Ron2, tmp
 
 
   l_max = self%ltmax

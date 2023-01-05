@@ -1,12 +1,35 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !Program: H3Plus
-!Purpose: performs a structure calculation for the 
-!         H3++ molecule. First step towards H3+ structure.
+!Purpose: performs a structure calculations for one and two electron
+!         H3 molecule.
 !Author: Reese Horton
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!TODO: remove rad_func and sturm_ind_list, redundant now
+
+
+!GLOBAL VARIABLES.... GLOBAL VARIABLES.... GLOBAL VARIABLES
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!---------------->>>>>GLOBAL VARIABLES<<<<<-----------------
+!Due to the MCCC code inheriting features and/or programming
+!constructs from legacy fortran77 code, there are several 
+!instances of globally defined data structures being used.
+!Most often, these are declared in the preamble of a particular
+!module, which is then USED in the subroutine that makes use of the
+!data structure. The following is a list of such variables directly used 
+!in the present version of the MCCC code. 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!dpf:: format specifier for declaring double precision floats in modern fortran
+!   - located in numbers.f90
+!data_in:: contains program input data read in from data.in file.
+!   - located in input_data.f90
+!   - initialisation subroutine readin uses global variables defined in
+!     target_data.f90 and input_parser.f90.
+!grid:: instance of rgrid type, stores grid of radial points and integration weights, etc
+!   - located in gridr.f90
 program H3Plus
    use grid_radial
    use sturmian_class
+	 use state_class
    use input_data !Defines global data_in variable
    use basismodule
    use numbers
@@ -16,26 +39,26 @@ program H3Plus
    type(smallinput):: indata
    integer:: nr  !number of radial grid points
    integer:: ii, jj, kk
-   real(dp), dimension(:), allocatable:: w
-   real(dp), dimension(:,:), allocatable:: z, wf !, B, H, KMat, 
-   complex(dp), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
+   real(dpf), dimension(:), allocatable:: w
+   real(dpf), dimension(:,:), allocatable:: z, wf !, B, H, KMat, 
+   complex(dpf), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
 	 logical, dimension(:), allocatable:: use_list
-   complex(dp), dimension(:,:,:), allocatable:: VRadMatEl
-   !real(dp), dimension(:,:), allocatable:: VReal
-   !complex(dp), dimension(:,:), allocatable:: VTemp
-   real(dp), dimension(:,:), allocatable:: realH, realB
-   real(dp), dimension(:,:,:), allocatable:: angular
+   complex(dpf), dimension(:,:,:), allocatable:: VRadMatEl
+   !real(dpf), dimension(:,:), allocatable:: VReal
+   !complex(dpf), dimension(:,:), allocatable:: VTemp
+   real(dpf), dimension(:,:), allocatable:: realH, realB, realK
+   real(dpf), dimension(:,:,:), allocatable:: angular
    integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list 
-	 real(dp), dimension(:), allocatable::  energies
+	 real(dpf), dimension(:), allocatable::  energies
    integer:: num_func, l, m, k, rad_func
    integer:: num_lambda
    integer:: lblocksize
    integer:: N, m_max !,lmax
    integer:: nstates, ier
-   real(dp):: alphal, mu
-   real(dp):: Rij, cosij
+   real(dpf):: alphal, mu
+   real(dpf):: Rij, cosij
    logical:: sorted, found
-   real(dp):: E1, E2, temp
+   real(dpf):: E1, E2, temp
    !Variables used to track program runtime
    character(len=8):: date1, date2
    character(len=10):: time1, time2
@@ -43,20 +66,24 @@ program H3Plus
    integer, dimension(8):: values1, values2
    integer:: hr1, hr2, sec1, sec2, mins1, mins2
    integer:: hrs, mins, secs
-   !Sturmian data types
+   !Sturmian data types: original basis, auxialliary basis summed over k
    type(basis_sturmian_nr)::basis
    integer:: i1, i2
-	 real(dp):: largest, smallest, largestZ
+	 real(dpf):: largest, smallest, largestZ
 	 integer:: si, sj
 	 !Data required for calling lapack routine dsygv
-	 real(dp), dimension(:), allocatable:: work
+	 real(dpf), dimension(:), allocatable:: work
 	 integer:: lda, ldb
 	 integer:: lwork, info
 	 logical:: uselapack
 	 !Arrays for testing case
 	 integer, dimension(20):: testm, testl, testk
 	 integer:: numfound, u1, u2
-	 complex(dp), dimension(:,:), allocatable:: tempK, tempB, KMatConroy
+	 complex(dpf), dimension(:,:), allocatable:: tempK, tempB, KMatConroy
+	 !State basis type for storing one electron states
+	 type(basis_state):: oneestatebasis
+	 integer:: inum, ncm, counter
+	 integer, dimension(:), allocatable:: no1, no2, mo1, mo2, phase
 
    !Intrinsic date and time subroutine
    call date_and_time(date1,time1,zone1,values1)
@@ -77,7 +104,8 @@ program H3Plus
 
    !Initialise sturmian data types, requires input data type defined in the MCCC code.
 	 if (indata%isoscop .eq. 0) then
-      call construct(basis, data_in)
+      !call construct(basis, data_in)
+			call construct_all_nr_m(basis,data_in)
 	 else if (indata%isoscop .eq. 1) then
 			if (indata%conroybasis .eq. 1) then
 				 !Just for testing, remove
@@ -112,7 +140,7 @@ program H3Plus
    num_lambda = (indata%lambdamax+1)**2
 
    allocate(VPot(nr,num_lambda))
-   VPot(:,:) = 0.0_dp
+   VPot(:,:) = 0.0_dpf
    allocate(VPotTemp(nr, num_lambda))
    do ii = 1, 3
       call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
@@ -136,14 +164,13 @@ program H3Plus
       stop
    end if
 
-
 	 !Defined arrays for test case
-	 testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
-	 testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
-	 testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
+	 testm(:) = indata%testm(:) 
+	 testl(:) = indata%testl(:)
+	 testk(:) = indata%testk(:) 
 
    !Define arrays to keep track of k,l,m values for each index
-   !Indexing scheme: specify (l,m), then k goes from 1 to N for each such pair 
+   !Indexing scheme: specify (l,m), then k goes from 1 to N_l for each such pair 
    !i.e l -> m -> k_lm
    allocate(k_list(num_func), l_list(num_func), m_list(num_func), sturm_ind_list(num_func))
    ii = 0
@@ -186,58 +213,17 @@ program H3Plus
       kk = kk + data_in%nps(l)
    end do
  
-   !Calculate the matrix elements, iterating through l values
-   allocate(H(num_func,num_func),B(num_func,num_func),V(num_func,num_func))
-   allocate(KMat(num_func, num_func))
-   KMat(:,:) = 0.0_dp
-   H(:,:) = 0.0_dp
-   V(:,:) = 0.0_dp
-   B(:,:) = 0.0_dp
+   allocate(H(num_func,num_func),V(num_func,num_func))
+   H(:,:) = 0.0_dpf
+   V(:,:) = 0.0_dpf
 
-   !Define B as before, but now need to ensure it is block diagonal in m also
-   B(:,:) = 0.0_dp
-   do ii = 1, num_func-1
-         B(ii,ii) = 1.0_dp
-         l=l_list(ii)
-	       m=m_list(ii)
-         k=k_list(ii)
-         if ((l_list(ii+1) .ne. l) .or. (m_list(ii+1) .ne. m)) then
-            cycle
-         end if
-         !Formula for upper diagonal B matrix elements, B is symmetric
-         B(ii,ii+1) = (-0.5_dp)*sqrt(1.0_dp-dble(l*(l+1))/dble((k+1+l)*(k+l)))
-         B(ii+1,ii) = B(ii,ii+1)
-   end do
-   B(num_func,num_func)= 1.0_dp
-
-   !K-matrix elements: analytical formula from slides
-   !K matrix is block diagonal in m and in l
-   !l specifies a block and m specifies a particular sub-block
-   KMat(:,:) = 0.0_dp
-   do ii = 1, num_func
-      l = l_list(ii)
-      alphal=data_in%alpha(l)
-      KMat(ii,ii) = (alphal**2)
-   end do
-
-   l = -1
-   jj=0
-   kk=0
-   lblocksize=0
-   do ii = 1, num_func
-      if (l .eq. l_list(ii)) then
-      	 cycle
-      end if
-      l = l_list(ii)
-      alphal = data_in%alpha(l)
-      !Assuming we choose the same range of k for each m at a given l
-      lblocksize = data_in%nps(l)*(2*l+1)
-      jj=kk+1
-      kk = kk + lblocksize
-      KMat(jj:kk,jj:kk) = KMat(jj:kk,jj:kk) - 0.5_dp*(alphal**2)*B(jj:kk,jj:kk)
-   end do
-   mu = 1.0_dp
-   KMat(:,:) = KMat(:,:)/mu
+   allocate(realB(basis%n,basis%n))
+	 realB(:,:) = basis%ortint(:,:)
+   call getKMatM(realK,realB,basis)
+	 allocate(B(num_func,num_func), KMat(num_func,num_func))
+	 B(:,:) = realB(:,:)
+	 KMat(:,:) = realK(:,:)
+	 deallocate(realB, realK)
 
    allocate(use_list(num_func))
    use_list(:) = .true.
@@ -288,8 +274,8 @@ program H3Plus
 				    
 			num_func = 20
 			allocate(H(num_func,num_func), V(num_func,num_func))
-			H(:,:) = 0.0_dp
-			V(:,:) = 0.0_dp
+			H(:,:) = 0.0_dpf
+			V(:,:) = 0.0_dpf
 	 end if
  
    print*, "GET ANGULAR MATRIX ELEMENTS"
@@ -298,8 +284,8 @@ program H3Plus
    call getAngular(num_func, angular, l_list, m_list, indata)
 
    !Precalculate radial matrix elements
-   allocate(VRadMatEl(num_lambda,rad_func,rad_func))
-   VRadMatEl(:,:,:) = 0.0_dp
+   allocate(VRadMatEl(num_lambda,basis%n,basis%n))
+   VRadMatEl(:,:,:) = 0.0_dpf
    print*, "GET RADIAL MATRIX ELEMENTS"
    call getRadMatEl(basis, VPot, grid, VRadMatEl, indata)
 
@@ -315,7 +301,7 @@ program H3Plus
    realH(:,:) = real(H(:,:))
    realB(:,:) = real(B(:,:)) 
 
-	 largest = 0.0_dp
+	 largest = 0.0_dpf
 	 do ii = 1, num_func
 	    do jj = 1, num_func
 	       if (isnan(realH(ii,jj))) then
@@ -338,7 +324,7 @@ program H3Plus
 						stop
 				 end if
 
-				 if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .lt. 0.0_dp)) then
+				 if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .lt. 0.0_dpf)) then
 				    largest = realH(ii,jj)
 				 end if
 			end do
@@ -346,16 +332,15 @@ program H3Plus
 	 do ii = 1, num_func
 	    do jj = 1, num_func
 	       if (abs(realH(ii,jj)) .lt. 1E-8*abs(largest)) then
-						realH(ii,jj) = 0.0_dp
+						realH(ii,jj) = 0.0_dpf
 				 end if
 			end do
 	 end do
 	 print*, "Removed small matrix elements"
 
-   !Call the rsg subroutine to solve the eigenvalue problem for the energies
    allocate(w(num_func),z(num_func,num_func))
 
-   !ALTERNATIVE: USE LAPACK ZHEGVX FUNCTION FOR HERMITIAN MATRICES RATHER THAN REAL SYMMETRIC
+	 !Diagonalise one-electron hamiltonian
 	 if (uselapack .eqv. .false.) then
       print*, "CALL RSG"
       call rsg(num_func,num_func,realH,realB,w,1,z,ier)
@@ -375,7 +360,7 @@ program H3Plus
 
 	 !Find largest expansion coefficient, ignore those below a certain
 	 !magnitude for stability/to get rid of underflow 
-	 largestZ = 0.0_dp
+	 largestZ = 0.0_dpf
 	 do ii = 1, num_func
 	    do jj = 1, num_func
 	       if (abs(z(ii,jj)) .gt. abs(largestZ)) then
@@ -385,86 +370,15 @@ program H3Plus
 	 end do
 	 do ii = 1, num_func
 	    do jj = 1, num_func
-	       if ((abs(z(ii,jj)) .lt. 1E-10*abs(largestZ)) .and. (abs(z(ii,jj)) .gt. 0.0_dp)) then
-						z(ii,jj) = 0.0_dp
+	       if ((abs(z(ii,jj)) .lt. 1E-10*abs(largestZ)) .and. (abs(z(ii,jj)) .gt. 0.0_dpf)) then
+						z(ii,jj) = 0.0_dpf
 				 end if
 			end do
 	 end do
-
-	 !smallest = 1000.0_dp 
-	 !do ii = 1, num_func
-	 !   do jj = 1, num_func
-	 !      if ((abs(z(ii,jj)) .lt. abs(smallest)) .and. (abs(z(ii,jj)) .gt. 0.0_dp)) then 
-	 ! 		  	smallest = z(ii,jj)
-	 ! 		  	si = ii
-	 ! 		  	sj = jj
-	 ! 		 end if
-	 ! 		 !if ((l_list(ii) .eq. 2) .and. ((m_list(ii) .eq. -1) .and. (k_list(ii) .eq. 1))) then
-	 ! 		 !      if (jj .eq. 159) then
-	 ! 		 ! 		    print*, "N=10, smallest: ", z(ii,159)
-	 ! 		 ! 		    print*, l_list(ii), m_list(ii), k_list(ii)
-	 ! 		 ! 		 end if
-	 ! 		 !end if
-	 ! 	end do
-   !end do
-	 !print*, smallest, si, sj
-	 !!!!!print*, z(51,159)
-	 !print*, l_list(si), m_list(si), k_list(si)
-	 !print*, l_list(sj), m_list(sj), k_list(sj)			 
-	 
-!	 info = 0
-!	 lwork = 8*num_func + 1
-!	 allocate(alphar(num_func), alphai(num_func), beta(num_func))
-!	 allocate(vl(num_func,num_func), vr(num_func,num_func), work(lwork))
-!	 alphar(:) = 0.0_dp
-!	 alphai(:) = 0.0_dp
-!	 beta(:) = 0.0_dp
-!	 vl(:,:) = 0.0_dp
-!	 vr(:,:) = 0.0_dp
-!	 jobvl = 'V'
-!	 jobvr = 'V'
-!	 work(:) = 0.0_dp
-!	 !First call is a workspace query to determine the optimal size of
-!	 !'work'.
-!	 print*, "BEFORE FIRST"
-!	 call sggev(jobvl, jobvr, num_func, realH, num_func, realB, num_func, alphar, &
-!	            alphai, beta, vl, num_func, vr, num_func, work, -1, info)
-!	 print*, "AFTER FIRST"
-!   lwork = int(work(1))
-!	 print*, info, lwork
-!   !deallocate(work)
-!	 !allocate(work(lwork))
-!	 !!Actual calculation
-!	 call sggev(jobvl, jobvr, num_func, realH, num_func, realB, num_func, alphar, &
-!	            alphai, beta, vl, num_func, vr, num_func, work, lwork, info)
-!
-!	 print*, "COMPUTED"
-!   do ii = 1, 1
-!	  	print*, alphar(ii), beta(ii)
-!	  	!if (beta(ii) .gt. 0.0_dp) then
-!	  	!   print*, alphar(ii)/beta(ii)
-!	  	!else
-!	  	!	 print*, alphar(ii)
-!	  	!end if
-!	 end do
-!	 stop
-!
-!	 if (info .eq. 0) then
-!	  	do ii = 1, num_func
-!	  		 if (abs(beta(ii)) .gt. 0.0_dp) then
-!	          w(ii) = alphar(ii)/beta(ii)
-!	  				z(:,ii) = vr(:,ii) !Copy eigenvectors to existing array
-!	  		 else 
-!	  				print*, "ERROR: beta(ii) equal to zero. Stopping."
-!	  				stop
-!	  		 end if
-!	  	end do
-!	 else
-!	    print*, "ERROR: solving for eigenvalues unsuccessful. Stopping."
-!	  	stop
-!   end if
-!	 deallocate(alphar, alphai, beta, vl, vr, work)
-
+	 !Renormalise coefficients
+	 do ii = 1, num_func
+	    z(ii,:) = z(ii,:)/sum(z(ii,:)**2)
+	 end do
 
    deallocate(realH,realB)
 
@@ -479,7 +393,7 @@ program H3Plus
          Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
 				 2*indata%R(ii)*indata%R(jj)*cosij)
 	       !Account for degenerate case where nuclei coincide
-         if (Rij .gt. 0.0_dp) then
+         if (Rij .gt. 0.0_dpf) then
             w(:) = w(:) + dble(indata%charge(ii)*indata%charge(jj))/Rij
          end if
       end do
@@ -496,11 +410,11 @@ program H3Plus
    !Need to divide by r and multiply by Ylm or Xlm to get full 3D wave function
    print*, "CALCULATED WAVE FUNCTIONS"
    allocate(wf(nr,num_func))
-   wf(:,:) = 0.0_dp
+   wf(:,:) = 0.0_dpf
    do ii = 1, num_func
     	do jj=1, num_func
 	       if (abs(z(ii,jj)) .lt. 1E-20 ) then
-	          z(ii,jj) = 0.0_dp
+	          z(ii,jj) = 0.0_dpf
 	       end if
          kk = sturm_ind_list(jj)
          !MODIFY TO BE A FUNCTION OF (r,theta,phi)
@@ -514,12 +428,37 @@ program H3Plus
    end do
    print*, "WAVE FUNCTIONS CALCULATED"
 
+   !Create basis of one-electron states, store in state_basis data type
+	 call new_basis_st(oneestatebasis,num_func, .false. , 0)
+	 do ii =1, oneestatebasis%Nmax
+			inum = ii        !Index of the state for given symmetry
+			ncm = num_func   !Number of CI coefficients in expansion
+			allocate(no1(ncm), no2(ncm), mo1(ncm), mo2(ncm), phase(ncm))
+			!no1, mo1 store superindex ii and magnetic number m of basis funcs
+			!used in expansion of the state.
+			!Useful if we use only a subset of the full basis for symmetry reasons.
+			do jj =1, num_func
+			   no1(jj)=jj
+				 mo1(jj)=m_list(jj)
+			end do
+			no2(:)=no1(:)
+			mo2(:)=mo1(:)
+			phase(:)=1.0_dpf   !Phase of CI coefficients           
+	    call construct_st(oneestatebasis%b(ii),.false.,0.0_dpf,0,0.5_dpf,w(ii),inum,num_func,z(:,ii),no1,mo1,no2,mo2,phase)
+			deallocate(no1,no2,mo1,mo2,phase)
+	 end do
 
-   !Number of energies calculated by rsg will be equal to the size of the basis used.
+
+   !CREATE YOUR OWN VERSION OF THE structure12 SUBROUTINE TO CALL THESE
+	 !FUNCTIONS, LOOK AT WHAT IS DONE THERE.
+	 call structure12group(basis,oneestatebasis,basis%n,indata)
+
+
+   !Number of energies calculated will be equal to the size of the basis used.
    !Allocate array to store energy of each state
    nstates = num_func
    allocate(energies(nstates))
-   energies(:) = 0.0_dp
+   energies(:) = 0.0_dpf
    nstates=0
    nstates=num_func
    energies(:) = w(:)
@@ -534,17 +473,8 @@ program H3Plus
 				 end if
 	 end if
 
-   !Print out the first energy in each symmetry
-   !ii= 1
-   !do m=0, m_max
-   !   do par=-1,1,2 
-   !   	 print*, "M= ", m, "par= ", par, ": ", energies(ii), " Ha"
-   !   	 ii = ii + 1 
-   !   end do
-   !end do
-
    print*, "SORT ENERGIES"
-   !Sort array of lowest energies for each symmetry, use bubble sort algorithm 
+   !Sort array of energies from lowest to highest, use bubble sort algorithm 
    !for simplicity
    sorted = .false.
    do while( .not. sorted)
