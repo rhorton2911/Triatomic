@@ -2,7 +2,8 @@ H3Plus
 *.o
 *.mod
 basis.txt
-energies.txt
+1eenergies.txt
+2eenergies.txt
 diatomicCase/
 mcccClasses/
 mcccfiles/

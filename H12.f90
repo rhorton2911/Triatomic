@@ -907,6 +907,7 @@ end subroutine structure12
 !         Creates and diagonalises 2e hamiltonian for non-linear molecule
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine structure12group(basis,oneestates,num_states,indata)
+	  use numbers
 	  use basismodule
     use input_data      !data_in
     use sturmian_class  
@@ -938,6 +939,13 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 		integer:: num_4econfigs, numloops
 		integer, dimension(:), allocatable:: nclist, ncplist
 		integer:: rep
+		!Required inputs for lapack routine dsygvx
+		real*8:: abstol
+		real*8, dimension(:), allocatable:: w, work
+		real*8, dimension(:,:), allocatable:: ci
+		integer, dimension(:), allocatable:: iwork, ifail
+		integer:: info, lwork, nfound
+    real*8, external :: DLAMCH
 	
 		!Call rearrange to represent states in a one-electron basis with well defined (lm)
 		call rearrange(basis,data_in%latop,oneestates,.false.)
@@ -954,6 +962,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 	  latop = data_in%latop
 	  l12max = data_in%l12max
 
+	  open(81,file='2eenergies.txt')
 	  !Loop over spin
 	  do is = 0, 1
    	   !Call config12 to set up list of configurations to include: no1, mo1, no2, mo2 arrays
@@ -1030,23 +1039,44 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 			 	  b(ncp, nc) = belement
 			 end do
 
-			 !!Diagonalise two electron hamiltonian to obtain H3+ electronic states 
-	     !allocate(work(1))
-			 !prec = 2.0_dpf*DLAMCH('S') !twice underflow threshold for doubles
-			 !call DSYGVX(1, 'V', 'A', 'U', numcon, H, numcon, b, numcon,
-			 !0.0_dp, 0.0_dp, 1, 1, prec, numcon,    
-	     !lwork = int(work(1))
-	     !deallocate(work)
-	     !allocate(work(lwork))
-			 !call DSYGVX(
+       !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
+       allocate(work(1))
+			 allocate(w(numcon))    !Stores eigenvalues
+			 allocate(iwork(5*numcon))
+			 allocate(ifail(numcon))
+			 allocate(ci(numcon,numcon))
+			 lwork = -1
+       abstol = 2.0_dpf*DLAMCH('S') !twice underflow threshold for doubles
+			 info = 0
+			 nfound = 0
+			 
+			 !Workspace query with lwork=-1
+       call DSYGVX(1, 'V', 'I', 'U', numcon, H, numcon, b, numcon,    &
+       0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
+			 iwork, ifail, info)
 
-			 !deallocate(work)
+       lwork = int(work(1))
+       deallocate(work)
+       allocate(work(lwork))
 
+			 !Perform diagonialisation
+       call DSYGVX(1, 'V', 'I', 'U', numcon, H, numcon, b, numcon,    &
+       0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
+			 iwork, ifail, info) 
+
+			 deallocate(work, iwork, ifail)
+
+			 write(81,*), "ENERGIES: H3+ states, S= ", is
+			 do ii = 1, 8
+			    write(81,*), ii, w(ii)
+			 end do
 
 
 			 deallocate(no1, repo1, no2, repo2, n_ion_core)
 	     deallocate(nclist, ncplist, H, b)
+			 deallocate(w,ci)
 	  end do
+	  close(81)
 
     
 end subroutine structure12group
@@ -2558,6 +2588,24 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 !!$   two-electron operator  matrix
   twoelME = 0d0
 
+
+	 !print*, 'i1max, nst1', i1max, nst1
+   !do i1=1,i1max
+   !   nsp1 = get_na(TargetStates1el%b(nst1),i1,1)
+   !   tmpCI1 = get_CI(TargetStates1el%b(nst1),i1)
+   !   p1 => bst%b(nsp1)
+	 ! 	print*, p1%k, p1%l, p1%m
+	 !end do
+	 !stop
+
+	 !print*, 'i2max',  i2max
+   !do i2=1,i2max
+   !   nsp2 = get_na(TargetStates1el%b(nst2),i2,1)
+   !   tmpCI1 = get_CI(TargetStates1el%b(nst2),i2)
+   !   p1 => bst%b(nsp2)
+	 ! 	!print*, p1%k, p1%l, p1%m
+	 !end do
+
   ttt = 0d0
   do i1=1,i1max
      nsp1 = get_na(TargetStates1el%b(nst1),i1,1)
@@ -2584,7 +2632,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 							mnst2p = get_ang_mom_proj_nr(p2p)
 							mnst1p = get_ang_mom_proj_nr(p1p)
 
-              call V12me(p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
+              call V12me_group(indata,p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
               
               ttt = ttt +  tmp * result
 
@@ -2634,7 +2682,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 								 mnst1p = get_ang_mom_proj_nr(p1p)
                  
 								 !Calculates V12 matrix elements between functions with well defined lm
-                 call V12me(p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
+                 call V12me_group(indata,p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
                  
                  ttt = ttt + tmp * result
                  
@@ -2658,7 +2706,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 				 2*indata%R(ii)*indata%R(jj)*cosij)
 	       !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
-            tmp = tmp + dble(indata%charge(ii)*indata%charge(jj))/Rij * resultb
+            tmp = tmp + (dble(indata%charge(ii)*indata%charge(jj))/Rij) * resultb
          end if
       end do
    end do
@@ -2671,10 +2719,160 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 !     tmp = - Z1*Z2/Rd  * resultb
 !  endif
 
-  resultH = oneelme + tmp +  twoelme
+  resultH = oneelme + tmp + twoelme
 
   return
 end subroutine H12me_st_group
+
+
+!$**************************************************************************************************
+!
+! This is matrix element of V(1,2) electron-electron potential for 4 functions: 
+! <n1 n2 | V(1,2) | n1p n2p >, where V(1,2) = sum_{lam} V_{lam}(1,2)
+! Note: potential V(12) can not change the total ang.mom. projection M of a configuration
+! This subroutine uses either real or complex spherical harmonics in the
+! expansion of V(1,2), with corresonding gaunt coefficients for each
+! case.
+subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
+
+  use basismodule
+  use sturmian_class
+  use grid_radial 
+  use MPI_module
+
+  implicit none
+  
+  type(sturmian_nr), intent(in):: pn1,pn2,pn1p,pn2p 
+  integer, intent(in):: m1, m1p, m2, m2p
+  real*8, intent(out):: result
+  
+  real*8:: Yint
+  
+
+  integer:: l1, l2, l1p, l2p
+  integer:: maxfm, minfm, i1, i2, minfun, maxfun, minfun1, maxfun1, lam, lammin, lammax
+  real*8:: rlam, rq, reslam
+  real*8:: tmp, tmp1, tmp2, sum1, sum2
+  integer:: minf1,maxf1, minf1p,maxf1p,minf2,maxf2, minf2p,maxf2p
+  real*8, pointer, dimension(:):: f1, f1p, f2, f2p 
+  real*8, dimension(grid%nr):: temp, fun, fun1, fun11
+  real*8:: rl1,rl2,rl1p,rl2p,rm1, rm2,rm1p,rm2p
+	real*8:: factor, qmin, qmax, q, pi
+	type(smallinput):: indata
+
+	pi = 4.0d0*atan(1.0d0)
+
+  result = 0d0
+
+  l1 = get_ang_mom(pn1) 
+  l2 = get_ang_mom(pn2)   
+  l1p = get_ang_mom(pn1p)
+  l2p = get_ang_mom(pn2p)
+  rl1 = l1
+  rl2 = l2
+  rl1p = l1p
+  rl2p = l2p
+
+  rm1 = m1
+  rm2 = m2
+  rm1p = m1p
+  rm2p = m2p
+  
+  f1 => fpointer(pn1)
+  f1p => fpointer(pn1p)
+  
+  f2 => fpointer(pn2)
+  f2p => fpointer(pn2p)
+  
+  minf1 = get_minf(pn1)
+  maxf1 = get_maxf(pn1)
+  minf1p = get_minf(pn1p)
+  maxf1p = get_maxf(pn1p)
+  
+  minf2 = get_minf(pn2)
+  maxf2 = get_maxf(pn2)
+  minf2p = get_minf(pn2p)
+  maxf2p = get_maxf(pn2p)
+
+
+  maxfm = min(maxf1,maxf1p)
+  minfm = max(minf1,minf1p)
+
+  fun1(minfm:maxfm) = f1(minfm:maxfm)*f1p(minfm:maxfm)*grid%weight(minfm:maxfm)
+  
+  minfun = max(minf2,minf2p)
+  maxfun = min(maxf2,maxf2p)
+  
+  !Liam: removed weights to use accurate form 
+  !fun(minfun:maxfun) = f2(minfun:maxfun)*f2p(minfun:maxfun) * grid%weight(minfun:maxfun)
+  fun(minfun:maxfun) = f2(minfun:maxfun)*f2p(minfun:maxfun)
+
+
+  lammin=max(abs(l1-l1p),abs(l2-l2p))
+  lammax=min(l1+l1p,l2+l2p)
+
+	if (indata%harmop .eq. 1) then
+	   lammin = 0
+	end if
+
+  do lam=lammin,lammax
+     if (indata%harmop .eq. 0) then
+	      !Complex harmonics, only one q gives non-zero gaunt coeffs, no loop
+	      qmin = lam
+				qmax = lam
+	   else if (indata%harmop .eq. 1) then
+        !Real harmonics, multiple q give non-zero gaunt coeffs, loop
+				qmin = -lam
+				qmax = lam
+	   else
+				print*, "ERROR: neither real nor complex harmonics selected stopping. V12me_group"
+				stop
+	   end if
+
+	
+     do q = qmin, qmax
+        rlam = lam
+
+        if (indata%harmop .eq. 0) then
+					 !Regular gaunt coeffs vanish for q != m1p - m1
+           rq = m1p - m1
+           tmp1 = (-1)**(nint(rq))*Yint(rl1,rm1,rlam,-rq,rl1p,rm1p)
+           tmp2 = Yint(rl2,rm2,rlam,rq,rl2p,rm2p)
+			  else if (indata%harmop .eq. 1) then
+					 !Real gaunt coeffs accept four different values of q
+           rq = q
+					 tmp1 = Xint(rl1,rm1,rlam,rq,rl1p,rm1p)
+					 tmp2 = Xint(rl2,rm2,rlam,rq,rl2p,rm2p)
+					 factor = 4*pi/dble(2*lam+1) !4pi/(2l+1) not included in Xint
+					 tmp1 = tmp1*factor
+			  end if
+
+        tmp = tmp1 * tmp2
+
+!        if (myid==0) print*, 'lam, q, tmp', lam, rq,tmp1,tmp2
+
+        if( tmp .eq. 0d0) then
+           cycle
+        endif 
+
+        !call form(lam,fun,minfun,maxfun,maxfm,temp,i1,i2)
+        call form_accurate(lam,fun,minfun,maxfun,maxfm,temp,i1,i2)
+        
+        minfun1 = max(i1,minfm)
+        maxfun1 = min(i2,maxfm)
+        
+        fun11(minfun1:maxfun1) = fun1(minfun1:maxfun1) * temp(minfun1:maxfun1)
+        
+        reslam = SUM(fun11(minfun1:maxfun1))
+    
+        result = result + reslam * tmp
+     end do
+     
+  enddo
+  
+
+end subroutine V12me_group
+
 
 
 

@@ -448,11 +448,8 @@ program H3Plus
 			deallocate(no1,no2,mo1,mo2,phase)
 	 end do
 
-
-   !CREATE YOUR OWN VERSION OF THE structure12 SUBROUTINE TO CALL THESE
-	 !FUNCTIONS, LOOK AT WHAT IS DONE THERE.
+   !Custom version of the structure12 subroutine tailored to non-linear molecules
 	 call structure12group(basis,oneestatebasis,basis%n,indata)
-
 
    !Number of energies calculated will be equal to the size of the basis used.
    !Allocate array to store energy of each state
@@ -494,7 +491,7 @@ program H3Plus
 
    print*, "WRITE ENERGIES TO FILE"
    !Write energes of states to file
-   open(80,file="energies.txt")
+   open(80,file="1eenergies.txt")
    write(80,*) "State Energies (Ha)"
    write(80,*) "R1=", indata%R(1), " R2=", indata%R(2), "R3=", indata%R(3)
    write(80,*) "N (index), E(Ha)"

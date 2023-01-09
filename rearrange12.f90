@@ -55,7 +55,7 @@ subroutine rearrange12_st(TargetStates1el, TargetStates2el,nicm,Nmax,Nmax1el)
       optional:: lag_ham1el_m
     end subroutine
   end interface
-  
+
   nstton1(:) = 0 
   nstton2(:,:) = 0
   CI(:) = 0d0
