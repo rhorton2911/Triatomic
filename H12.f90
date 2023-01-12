@@ -915,7 +915,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 	  use target_states   !Contains global variables for storing 1 and 2e target states
     use MPI_module      !Contains myid global variable
     implicit none
-    type(basis_sturmian_nr)::basis
+    type(basis_sturmian_nr)::basis   !Sturmian basis used for 1e diagonalisation
 	  type(basis_state):: oneestates   !One electron spatial molecular orbitals
 		type(smallinput):: indata
 		integer:: ii, jj, counter
@@ -938,7 +938,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     integer:: repnsp1, repnsp2,repnsp1p,repnsp2p
 		integer:: num_4econfigs, numloops
 		integer, dimension(:), allocatable:: nclist, ncplist
-		integer:: rep
+		integer:: rep, val
 		!Required inputs for lapack routine dsygvx
 		real*8:: abstol
 		real*8, dimension(:), allocatable:: w, work
@@ -946,9 +946,11 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 		integer, dimension(:), allocatable:: iwork, ifail
 		integer:: info, lwork, nfound
     real*8, external :: DLAMCH
-	
-		!Call rearrange to represent states in a one-electron basis with well defined (lm)
-		call rearrange(basis,data_in%latop,oneestates,.false.)
+
+			
+		!do ii = 1, oneestates%Nmax
+		!   print*, oneestates%b(ii)%energy
+		!end do
 
     !counter = 1
     !do ii = 1, oneestates%Nmax
@@ -1009,10 +1011,21 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 				  end do
 			 end do
 
+			 if (myid==0) write(*,*) 'Spin = ', is
        if (myid==0) write(*,*) 'Number of 2e configurations = ', numcon
 
 			 !Declare H and b matrices
 			 allocate(H(numcon,numcon), b(numcon,numcon))
+
+			 !do ii = 1, oneestates%Nmax
+			 !   nsp1 = get_nam(oneestates%b(ii))
+			 ! 	 print*, oneestates%b(ii)%energy, nsp1
+			 ! 	 do jj = 1, nsp1
+			 ! 	   val = get_na(oneestates%b(ii),jj,1)
+			 ! 		 print*, val, basis%b(val)%l, basis%b(val)%m
+			 !   end do
+			 !end do
+			 !stop
 
 			 !Calculate H12 interaction matrix elements <pn|H|n>, 
 			 !|n> = |e1> * |e2> and |np> = |e1p> * |e2p>
@@ -1031,12 +1044,14 @@ subroutine structure12group(basis,oneestates,num_states,indata)
           repnsp1p = repo1(ncp) 
           repnsp2p = repo2(ncp) 
 
-			    call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+			    !call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+					!call H12me_st_group_nonortog(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
 
 			 	  H(nc, ncp) = Helement
 			 	  H(ncp, nc) = Helement
 			 	  b(nc, ncp) = belement
 			 	  b(ncp, nc) = belement
+					!print*, nc, ncp, Helement, belement
 			 end do
 
        !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
@@ -1067,7 +1082,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 			 deallocate(work, iwork, ifail)
 
 			 write(81,*), "ENERGIES: H3+ states, S= ", is
-			 do ii = 1, 8
+			 do ii = 1, min(8,numcon)
 			    write(81,*), ii, w(ii)
 			 end do
 
@@ -1692,6 +1707,11 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
         endif
      enddo
   enddo
+
+  if (ico .ne. ncm) then
+     print*, "ERROR: number of configurations chosen does not match earlier tally in config12_tmp_st_group, stopping"
+	   stop
+  end if
 
   ncm = ico
 
@@ -2582,29 +2602,10 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
      resultb = 1d0
 
      oneelME = get_energy_st(TargetStates1el%b(nst1)) + get_energy_st(TargetStates1el%b(nst2))
-     
   endif
 
 !!$   two-electron operator  matrix
   twoelME = 0d0
-
-
-	 !print*, 'i1max, nst1', i1max, nst1
-   !do i1=1,i1max
-   !   nsp1 = get_na(TargetStates1el%b(nst1),i1,1)
-   !   tmpCI1 = get_CI(TargetStates1el%b(nst1),i1)
-   !   p1 => bst%b(nsp1)
-	 ! 	print*, p1%k, p1%l, p1%m
-	 !end do
-	 !stop
-
-	 !print*, 'i2max',  i2max
-   !do i2=1,i2max
-   !   nsp2 = get_na(TargetStates1el%b(nst2),i2,1)
-   !   tmpCI1 = get_CI(TargetStates1el%b(nst2),i2)
-   !   p1 => bst%b(nsp2)
-	 ! 	!print*, p1%k, p1%l, p1%m
-	 !end do
 
   ttt = 0d0
   do i1=1,i1max
@@ -2794,7 +2795,6 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   minf2p = get_minf(pn2p)
   maxf2p = get_maxf(pn2p)
 
-
   maxfm = min(maxf1,maxf1p)
   minfm = max(minf1,minf1p)
 
@@ -2806,7 +2806,6 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   !Liam: removed weights to use accurate form 
   !fun(minfun:maxfun) = f2(minfun:maxfun)*f2p(minfun:maxfun) * grid%weight(minfun:maxfun)
   fun(minfun:maxfun) = f2(minfun:maxfun)*f2p(minfun:maxfun)
-
 
   lammin=max(abs(l1-l1p),abs(l2-l2p))
   lammax=min(l1+l1p,l2+l2p)
@@ -2825,7 +2824,7 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
 				qmin = -lam
 				qmax = lam
 	   else
-				print*, "ERROR: neither real nor complex harmonics selected stopping. V12me_group"
+				print*, "ERROR: neither real nor complex harmonics selected, stopping. V12me_group"
 				stop
 	   end if
 

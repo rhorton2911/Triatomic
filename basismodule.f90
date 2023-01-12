@@ -11,14 +11,13 @@ module basismodule
    !Type: input
 	 !Purpose: strores program input parameters read in from input file
 	 type smallinput
-      integer:: N   !Basis size
-	    integer:: Nalpha !nunber of exponential falloff parameters in input file
-	    real(dpf), dimension(:), allocatable:: alpha    !Exponential falloff parameters
-	    integer:: l         !Angular momentum parameter, max l of the basis
-	    real(dpf):: dr       !radial grid spacing
-	    real(dpf):: rmax     !number of radial grid points
+      !integer:: N   !Basis size
+	    !integer:: Nalpha !nunber of exponential falloff parameters in input file
+	    !real(dpf), dimension(:), allocatable:: alpha    !Exponential falloff parameters
+	    !integer:: l         !Angular momentum parameter, max l of the basis
+	    !real(dpf):: dr       !radial grid spacing
+	    !real(dpf):: rmax     !number of radial grid points
 	    integer:: lambdamax  !Maximum lambda in expansion of potential
-	    integer:: mmax       !Maximum angular momentum projection onto Rhat
 	    integer:: harmop     !Option to use real or complex spherical harmonics (1=real, 0=complex)
 	    !Properties and coordinates of each nucleus
 	    integer, dimension(3):: charge  
@@ -63,17 +62,16 @@ module basismodule
 
 			open(20,file="input")
 
-			read(20,*) indata%N
-			read(20,*) indata%Nalpha
+			!read(20,*) indata%N
+			!read(20,*) indata%Nalpha
 
-			allocate(indata%alpha(indata%Nalpha))
-			read(20,*) (indata%alpha(ii), ii=1, indata%Nalpha)
+			!allocate(indata%alpha(indata%Nalpha))
+			!read(20,*) (indata%alpha(ii), ii=1, indata%Nalpha)
 
-			read(20,*) indata%l
-			read(20,*) indata%dr
-			read(20,*) indata%rmax
+			!read(20,*) indata%l
+			!read(20,*) indata%dr
+			!read(20,*) indata%rmax
 			read(20,*) indata%lambdamax
-			read(20,*) indata%mmax
 			read(20,*) indata%harmop
 			read(20,*)
 			read(20,*) indata%charge(1)
@@ -103,33 +101,33 @@ module basismodule
 			read(20,*) indata%R2
 	    
       if (indata%R1 .gt. 2.0_dpf*indata%R2) then
-				 print*, "ERROR: isosclese triangle with R1 > 2*R2 do &not exist, stopping"
+				 print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
 				 stop
 	    end if
 
-			allocate(temp(indata%Nalpha))
-			temp(:) = 0.0_dpf
-			temp(:) = indata%alpha(:)
-			deallocate(indata%alpha)
-			allocate(indata%alpha(indata%l+1))
-			
-			!Method chosen is to change fallof parameter
-			!every three values of l
-			counter = 1 
-			do ii = 1, indata%l+1
-			   if (mod(ii,3) .eq. 0) then
-			      counter = counter + 1
-			   end if
-			   
-			   if (counter .le. indata%Nalpha) then
-			      indata%alpha(ii) = temp(counter)
-			   else 
-			      !Use the first alpha as default
-			      indata%alpha(ii) = temp(1)
-			   end if
-			   end do
-			deallocate(temp)
-
+!			allocate(temp(indata%Nalpha))
+!			temp(:) = 0.0_dpf
+!			temp(:) = indata%alpha(:)
+!			deallocate(indata%alpha)
+!			allocate(indata%alpha(indata%l+1))
+!			
+!			!Method chosen is to change fallof parameter
+!			!every three values of l
+!			counter = 1 
+!			do ii = 1, indata%l+1
+!			   if (mod(ii,3) .eq. 0) then
+!			      counter = counter + 1
+!			   end if
+!			   
+!			   if (counter .le. indata%Nalpha) then
+!			      indata%alpha(ii) = temp(counter)
+!			   else 
+!			      !Use the first alpha as default
+!			      indata%alpha(ii) = temp(1)
+!			   end if
+!			   end do
+!			deallocate(temp)
+!
 
 			if (indata%isoscop .eq. 1) then
 			   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
@@ -176,13 +174,13 @@ module basismodule
 	 !Subroutine: deconstructInput
 	 !Purpose: clears all memory in the input data type
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine deconstructInput(indata)
-			implicit none
-			type(smallinput):: indata
-	 
+	 !subroutine deconstructInput(indata)
+	 ! 	implicit none
+	 ! 	type(smallinput):: indata
+	 !
 
-			deallocate(indata%alpha)
-	 end subroutine deconstructInput
+	 ! 	deallocate(indata%alpha)
+	 !end subroutine deconstructInput
 
 
 

@@ -51,9 +51,9 @@ program H3Plus
    integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list 
 	 real(dpf), dimension(:), allocatable::  energies
    integer:: num_func, l, m, k, rad_func
+	 integer:: n
    integer:: num_lambda
    integer:: lblocksize
-   integer:: N, m_max !,lmax
    integer:: nstates, ier
    real(dpf):: alphal, mu
    real(dpf):: Rij, cosij
@@ -98,8 +98,6 @@ program H3Plus
    call setgrids(grid)
 
    call readInput(indata)
-   N = indata%N
-   m_max = indata%mmax
 	 uselapack = .true.
 
    !Initialise sturmian data types, requires input data type defined in the MCCC code.
@@ -151,7 +149,7 @@ program H3Plus
    
    !Triatomic molecules do not have good quantum numbers such as angular momentum and parity (like H2+).
    !Instead, the clamped nuclei electronic V-matrix is diagonal in different irreducible representations of a 
-   !given point group. Since we are not currently using a symmetry adapted basis, we can only loop over l
+   !given point group. Since we are not currently using a symmetry adapted basis, we can only loop over lm
    num_func=0
    do l = data_in%labot, data_in%latop
       !Now need to loop over l and m, m is no longer conserved.
@@ -301,6 +299,20 @@ program H3Plus
    realH(:,:) = real(H(:,:))
    realB(:,:) = real(B(:,:)) 
 
+	 if (indata%harmop .eq. 0) then
+			!Molecule has C_s symmetry if:
+			!(1)  R_1 != R_2
+			!(2)  nuclei 1 and two are not symmetric about z-axis
+			!(3)  nucleus 1 does not lie on z-axis (should never happen)
+			!Matrix elements have non-zero complex part in C_s symmetry
+			if (((abs(indata%R(2) - indata%R(3)) .gt. 0.0_dpf) .or. &
+					 (abs(abs(indata%theta(2)) - abs(indata%theta(3))) .gt. 0.0_dpf)) .or. &
+					 (abs(indata%theta(1)) + abs(indata%phi(1))) .gt. 0.0_dpf) then
+			   print*, "WARNING: complex spherical harmonics not yet implemented for C_s geometries. Stopping."	
+				 stop
+			end if
+	 end if
+
 	 largest = 0.0_dpf
 	 do ii = 1, num_func
 	    do jj = 1, num_func
@@ -375,7 +387,7 @@ program H3Plus
 				 end if
 			end do
 	 end do
-	 !Renormalise coefficients
+	 !Renormalise coefficients so norm is 1
 	 do ii = 1, num_func
 	    z(ii,:) = z(ii,:)/sum(z(ii,:)**2)
 	 end do
@@ -407,26 +419,26 @@ program H3Plus
    end do
    close(80)
 
-   !Need to divide by r and multiply by Ylm or Xlm to get full 3D wave function
-   print*, "CALCULATED WAVE FUNCTIONS"
-   allocate(wf(nr,num_func))
-   wf(:,:) = 0.0_dpf
-   do ii = 1, num_func
-    	do jj=1, num_func
-	       if (abs(z(ii,jj)) .lt. 1E-20 ) then
-	          z(ii,jj) = 0.0_dpf
-	       end if
-         kk = sturm_ind_list(jj)
-         !MODIFY TO BE A FUNCTION OF (r,theta,phi)
+   !!Need to divide by r and multiply by Ylm or Xlm to get full 3D wave function
+   !print*, "CALCULATED WAVE FUNCTIONS"
+   !allocate(wf(nr,num_func))
+   !wf(:,:) = 0.0_dpf
+   !do ii = 1, num_func
+   ! 	do jj=1, num_func
+	 !      if (abs(z(ii,jj)) .lt. 1E-20 ) then
+	 !         z(ii,jj) = 0.0_dpf
+	 !      end if
+   !      kk = sturm_ind_list(jj)
+   !      !MODIFY TO BE A FUNCTION OF (r,theta,phi)
 
-	       !Basis function set to zero outside of range of r values indexed by i1, i2
-	       i1 = basis%b(kk)%minf
-	       i2 = basis%b(kk)%maxf
-               
-    	   wf(i1:i2,ii) = wf(i1:i2,ii) +  z(jj,ii)*basis%b(kk)%f(i1:i2)!*YLM
-    	end do
-   end do
-   print*, "WAVE FUNCTIONS CALCULATED"
+	 !      !Basis function set to zero outside of range of r values indexed by i1, i2
+	 !      i1 = basis%b(kk)%minf
+	 !      i2 = basis%b(kk)%maxf
+   !            
+   ! 	   wf(i1:i2,ii) = wf(i1:i2,ii) +  z(jj,ii)*basis%b(kk)%f(i1:i2)!*YLM
+   ! 	end do
+   !end do
+   !print*, "WAVE FUNCTIONS CALCULATED"
 
    !Create basis of one-electron states, store in state_basis data type
 	 call new_basis_st(oneestatebasis,num_func, .false. , 0)
@@ -447,9 +459,6 @@ program H3Plus
 	    call construct_st(oneestatebasis%b(ii),.false.,0.0_dpf,0,0.5_dpf,w(ii),inum,num_func,z(:,ii),no1,mo1,no2,mo2,phase)
 			deallocate(no1,no2,mo1,mo2,phase)
 	 end do
-
-   !Custom version of the structure12 subroutine tailored to non-linear molecules
-	 call structure12group(basis,oneestatebasis,basis%n,indata)
 
    !Number of energies calculated will be equal to the size of the basis used.
    !Allocate array to store energy of each state
@@ -499,8 +508,30 @@ program H3Plus
       write(80,*) ii, energies(ii)
    end do
    close(80)
-   
-   call deconstructInput(indata)
+
+
+
+	 !---------------------Perform 2e Structure --------------------!
+  	!one_electron_func.f90: fills oneestates type before structure12
+  	!is called, specifically does so in construct_1el_basis_nr
+  	!and Hybrid_MSCbasis functions, which also set e1me and ovlpst
+  	!arrays
+  	!Hybrid_MSCbasis actually already loops over m when copying
+  	!laguerre functions to TargetStates
+  	!rearrange(): called in construct_1el_basis_nr, I've already
+  	!modified rearrange, might need to check its usage still works
+  	!when called in construct_1el_basis_nr
+  
+	 !Call rearrange to represent 1e states in a one-electron basis with well defined (lm)
+	 call rearrange(basis,data_in%latop,oneestatebasis,.false.)
+
+	 !Modified version of subroutine in one_electron_func.f90, constructs basis for use in 2e configs
+	 !call construct_1el_basis_nr_group(  )
+
+   !Custom version of the structure12 subroutine tailored to non-linear molecules
+	 call structure12group(basis,oneestatebasis,basis%n,indata)
+
+	 !--------------------End Two Electron Structure------------------!
 
    deallocate(energies)
    call destruct_gridr(grid)

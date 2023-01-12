@@ -63,10 +63,10 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
   
   num_n_newf(:) = 0 ! initialiize to 0
   
-!!$ Initialize av_l_newf array elements with -1
-  av_l_newf(:,:) = -1
-  av_n_newf(:,:) = 0
-  av_m_newf(:,:) = -1
+!!$ Initialize av_l_newf array elements with -1000, can never be reached
+  av_l_newf(:,:) = -1000
+  av_n_newf(:,:) = -1000
+  av_m_newf(:,:) = -1000
   
   do nst = 1, nstmax 
 
