@@ -929,7 +929,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 		!repo1, repo2 replace mo1, mo2 as m proj goes to group irrep in
 		!non-linear case
 		integer, dimension(:), allocatable:: no1, repo1, no2, repo2
-		integer:: latop, l12max
+		integer:: l12max
 		!Configuration indices and matrix elements
 		real(dpf), dimension(:,:), allocatable:: H, b
 		real(dpf):: Helement, belement
@@ -952,17 +952,18 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 		!   print*, oneestates%b(ii)%energy
 		!end do
 
-    !counter = 1
-    !do ii = 1, oneestates%Nmax
-    !   print*, "NEW BASIS SIZE: ", oneestates%b(ii)%nam
-    !   do jj = 1, oneestates%b(ii)%nam
-    !      print*, basis%b(counter)%k, basis%b(counter)%l, basis%b(counter)%m
-    ! 		 counter = counter + 1
-    ! 	end do 
-    !end do
+    counter = 1
+    do ii = 1, oneestates%Nmax
+		   print*, oneestates%b(ii)%energy
+      ! print*, "NEW BASIS SIZE: ", oneestates%b(ii)%nam
+      ! do jj = 1, oneestates%b(ii)%nam
+      !    print*, basis%b(counter)%k, basis%b(counter)%l, basis%b(counter)%m
+     	!	 counter = counter + 1
+     	!end do 
+    end do
+	  stop
 
-	  latop = data_in%latop
-	  l12max = data_in%l12max
+	  !l12max = data_in%l12max
 
 	  open(81,file='2eenergies.txt')
 	  !Loop over spin
@@ -1044,7 +1045,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
           repnsp1p = repo1(ncp) 
           repnsp2p = repo2(ncp) 
 
-			    !call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+			    call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
 					!call H12me_st_group_nonortog(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
 
 			 	  H(nc, ncp) = Helement
