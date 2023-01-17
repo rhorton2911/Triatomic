@@ -9,17 +9,31 @@ SCATOBJ=vnc_module.o one_electron_func_module.o state_class_module.o osc.o osc12
 	kgrid.o ps_coefsSPD.o posvmat.o channels_info.o \
   iqpackd.o kgrid_igor.o cc.o dcoul.o spheroidal_waves.o numerov.o contwaves.o\
   onshellt_mod.o optical.o BornICS_module.o reconstruct.o vmat12.o tmatsolve.o phenom_pol.o tmatsolve_cmplx.o redistribute.o scat.o Jloop.o rearrange.o 
-	#From line 5 on, dependencies of Jloop.o  (and their dependencies)
+  #From line 5 on, dependencies of Jloop.o  (and their dependencies)
 
 
-        #Compiling Legendre.f90 into Legendre.o will automatically produce the .mod files for all modules within.  #Matrix_Print.o Data_Module.o Associated_Legendre_Functions.o Special_Functions.o \  #Contained in Legendre.f90
+#Compiling Legendre.f90 into Legendre.o will automatically produce the .mod files for all modules within.  #Matrix_Print.o Data_Module.o Associated_Legendre_Functions.o Special_Functions.o \  #Contained in Legendre.f90
 LEGACYHELPER=wigner.o plql.o intp.o rsg.o 
 OBJ= $(LEGACYHELPER) $(MCCCOBJ) basismodule.o $(STATECLASSOBJ) main.o
-FC=ftn #gfortran when using gnu programming environment
+
+#---------------------Choose compiler name depnding on machine ---------------------#
+HOSTNAME=$(shell hostname)
+$(info HOSTNAME is: $(HOSTNAME))
+ifneq (,$(findstring $(HOSTNAME),gadi-login))
+        #If current hostname is a gadi login node, use gadi-specific parameters
+	FC=gfortran
+	LAPACKLIB= -lmkl_gf_lp64 -lmkl_core -lmkl_gnu_thread -lgomp -lm
+else
+	#Default, use setup for setonix
+	FC=ftn 
+	LAPACKLIB= -llapack
+endif
+
+
+#-------------------- Choose compiler flags ---------------------------#
 FLAGS= -Wall -Wno-tabs -pedantic -fimplicit-none  -fopenmp #-Werror
 ERRFLAGS1= -g -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division -fbounds-check
 ERRFLAGS= $(ERRFLAGS1) -Wsurprising  -fstack-check #--fpe-trap=invalid,zero,overflow
-
 #Comment out errflags when not debugging
 CFLAGS=$(FLAGS)  $(ERRFLAGS)
 MCFLAGS = $(CFLAGS) -ffree-line-length-512
@@ -28,7 +42,7 @@ all: $(EXEC)
 
 #Linking step: link all compiled files into an executable. 
 $(EXEC): $(OBJ)
-	$(FC) $(CFLAGS) $(OBJ) -llapack -o $(EXEC)
+	$(FC) $(CFLAGS) $(OBJ) $(LAPACKLIB) -o $(EXEC)
 
 #Compiling step: call to objects in OBJ in the linking step causes these
 #the be called to generate the object files.
