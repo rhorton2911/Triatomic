@@ -508,7 +508,7 @@ end subroutine oscstr_oid
 !
 !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=!
 !
-subroutine oscstr1_st(iosc,n,np,pn,pnp,TranEnergy,result_l,result_v,rl,rv)
+subroutine oscstr1_st(iosc,n,np,pn,pnp,TranEnergy,result_l,result_v,rl, rv) !,rlpar,rvpar,rlperp,rvperp)
   use grid_radial 
   use sturmian_class
   use target_states
@@ -521,120 +521,144 @@ subroutine oscstr1_st(iosc,n,np,pn,pnp,TranEnergy,result_l,result_v,rl,rv)
   type(state), intent(in):: pn, pnp   ! One electron states
   real*8, intent(in):: TranEnergy
   real*8, intent(out):: result_l, result_v
-  real*8, intent(out), optional :: rl, rv
+  real*8, intent(out), optional:: rl, rv
+  !real*8, intent(out):: kkkkresult_lperp, result_vperp
+  !real*8, intent(out):: result_lpar, result_vpar
+  !real*8, intent(out), optional :: rlpar, rvpar, rlperp, rvperp !par, perp dipole matrix elements
 
   integer::  Nst, Nstp, l, lp, ma, map, ne, nep,  dL, dM  !quantum numbers and loops
   type(sturmian_nr), pointer:: nn, nnp  !  one-electron orbitals
   integer:: i, ipp
   integer::  minf, maxf, minfp, maxfp,  i1, i2 ! Radial integrations
-  real*8:: Coeff, nnpRnn, temp, CI, CIp, temp_l
+  real*8:: Coeffperp, Coeffpar, nnpRnn, temp, CI, CIp, temp_l
   real*8:: temp_v, ideriv,  vint
   real*8, pointer, dimension(:)::  f, fp ! f One-electron functions
   real*8, pointer, dimension(:):: weight, gridr
+  real*8:: g !Relative degeneracy of states
+
+  !New variables:
+  real*8, dimension(3):: result_larr
+  real*8, dimension(3):: result_varr
+
+  print*, "FIX OSCSTR_1ST"
+  stop
  
-  weight => grid%weight
-  gridr => grid%gridr
-  result_l = 0d0
-  temp_l = 0d0
-  result_v = 0d0
-  temp_v = 0d0
+ ! weight => grid%weight
+ ! gridr => grid%gridr
+ ! result_l = 0d0
+ ! temp_l = 0d0
+ ! result_v = 0d0
+ ! temp_v = 0d0
 
-  Nstp = get_nam(pnp) 
-  map = TargetStates%b(np)%M
+ ! Nstp = get_nam(pnp) 
+ ! map = TargetStates%b(np)%M
 
-  Nst = get_nam(pn)  ! ncm = nam which is the size of the array na(:), which is also the number of CI coeff
-  ma = TargetStates%b(n)%M ! Get magnetic sublevels? M = m for one-electron
-  
-  dM = map - ma 
+ ! Nst = get_nam(pn)  ! ncm = nam which is the size of the array na(:), which is also the number of CI coeff
+ ! ma = TargetStates%b(n)%M ! Get magnetic sublevels? M = m for one-electron
+ ! 
+ ! g =
+ ! !dM = map - ma 
 
-  do nep = 1, Nstp  ! Looping over the number of one-electron orbitals which make up each molecule state
-     
-     CIp = get_CI(pnp, nep)
-     ipp = get_na(pnp,nep,1)
-     nnp => bst_nr%b(ipp)
-     fp => fpointer(nnp)
-     lp = get_ang_mom(nnp)
-     
-     do ne =  1, Nst
-        
-        CI = get_CI(pn, ne) ! Get CI coefficient for that one-electron function
-        i = get_na(pn,ne,1) ! which is na(ne), where nc = 1,2,...Nst
-        nn => bst_nr%b(i)   ! Makes nn the one-electron states?
-        f => fpointer(nn)   ! One electron functions?
-        l = get_ang_mom(nn) ! Gets angular momentum from the one-electron orbitals
-        
-        dL = lp - l
-      
-        if ( dL == 0 ) cycle 
-        if ( ABS(dL) > 1 ) cycle  ! Selection rules dl = +/- 1 
-  
-        temp = (2 * l + 2 + dL) * (2 * l + dL)
-        
-        ! Extent of radial grid for integrations
-        minf = get_minf(nn)
-        maxf = get_maxf(nn)
-        minfp = get_minf(nnp)
-        maxfp = get_maxf(nnp)
-        
-        i1 = max(minf,minfp)
-        i2 = min(maxf,maxfp)
-        
-        ! Radial Integration <fp|r|f>
-        nnpRnn = SUM( fp(i1:i2) *  f(i1:i2)  * gridr(i1:i2) * weight(i1:i2) ) ! One-electron function normalized so that r^2 term is taken out of integrations.
-        
-        
-        !Velocity Integrals
-        ! Derivatiie Integral Note: d/dr(phi(r)/r) = phi'(r)/r -  phi(r)/(r^2)
-        ideriv =  SUM((( f(i1+1:i2) - f(i1:i2-1)) / (gridr(i1+1:i2) - gridr(i1:i2-1))) * fp(i1:i2-1) * weight(i1:i2-1))
-        
-        ! Varsholovich pg 147 and look at derivative operator second term.
-        vint = SUM( fp(i1:i2) * f(i1:i2) * weight(i1:i2) / gridr(i1:i2) )
-        if ( l < lp ) then
-           vint = ideriv - (l + 1.0) * vint
-        else if ( l > lp) then
-           vint = ideriv + dble(l) * vint
-        end if
-        
-        Coeff = 0d0 ! Length Guage Block Varsholovich pg 145 
-        if ( dM == 0) then ! Parallel Transitions <z> 
-           Coeff = sqrt( ( dble(l) + 0.5 + dble(dL) * 0.5 ) ** 2.0 - dble(ma * ma)) 
-        end if
-        if ( ABS(dM) == 1) then
-           if (ma < map  .AND. l < lp   ) then  ! Perpendicular Transitions <x +/- iy> 
-              Coeff = sqrt(dble((l + ma + 2 ) * (l + ma + 1)))
-           else if (  ma > map  .AND. l < lp ) then
-              Coeff = - sqrt(dble((l - ma + 2) * (l - ma + 1)))  
-           else if (  ma < map  .AND. l > lp  ) then         
-              Coeff = - sqrt(dble((l - ma ) * (l - ma - 1)))  
-           else if (  ma > map  .AND. l > lp ) then
-              Coeff = sqrt(dble((l + ma ) * (l + ma - 1)))               
-           end if
-           Coeff = Coeff /  sqrt(2.0)                 
-        end if
-        
-        Coeff = Coeff / sqrt(temp) 
-        
-        result_l = temp_l +  CIp * CI * Coeff * nnpRnn 
-        result_v = temp_v +  CIp * CI * Coeff * vint
-        temp_l = result_l
-        temp_v = result_v
-           
-     end do ! ne RHS one-electron functions
-     
-  end do    ! nep LHS one-electron functions
-  
-  if(present(rl).and.present(rv)) then
-    rl = result_l
-    rv = result_v
-  endif
+ ! do nep = 1, Nstp  ! Looping over the number of one-electron orbitals which make up each molecule state
+ !    
+ !    CIp = get_CI(pnp, nep)
+ !    ipp = get_na(pnp,nep,1)
+ !    nnp => bst_nr%b(ipp)
+ !    fp => fpointer(nnp)
+ !    lp = get_ang_mom(nnp)
+ !    
+ !    do ne =  1, Nst
+ !       
+ !       CI = get_CI(pn, ne) ! Get CI coefficient for that one-electron function
+ !       i = get_na(pn,ne,1) ! which is na(ne), where nc = 1,2,...Nst
+ !       nn => bst_nr%b(i)   ! Makes nn the one-electron states?
+ !       f => fpointer(nn)   ! One electron functions?
+ !       l = get_ang_mom(nn) ! Gets angular momentum from the one-electron orbitals
+ !       
+ !       dL = lp - l
+ !       
+ !       dM = 
+ !     
+ !       if ( dL == 0 ) cycle 
+ !       if ( ABS(dL) > 1 ) cycle  ! Selection rules dl = +/- 1 
+ ! 
+ !       temp = (2 * l + 2 + dL) * (2 * l + dL)
+ !       
+ !       ! Extent of radial grid for integrations
+ !       minf = get_minf(nn)
+ !       maxf = get_maxf(nn)
+ !       minfp = get_minf(nnp)
+ !       maxfp = get_maxf(nnp)
+ !       
+ !       i1 = max(minf,minfp)
+ !       i2 = min(maxf,maxfp)
+ !       
+ !       ! Radial Integration <fp|r|f>
+ !       nnpRnn = SUM( fp(i1:i2) *  f(i1:i2)  * gridr(i1:i2) * weight(i1:i2) ) ! One-electron function normalized so that r^2 term is taken out of integrations.
+ !       
+ !       
+ !       !Velocity Integrals
+ !       ! Derivatiie Integral Note: d/dr(phi(r)/r) = phi'(r)/r -  phi(r)/(r^2)
+ !       ideriv =  SUM((( f(i1+1:i2) - f(i1:i2-1)) / (gridr(i1+1:i2) - gridr(i1:i2-1))) * fp(i1:i2-1) * weight(i1:i2-1))
+ !       
+ !       ! Varsholovich pg 147 and look at derivative operator second term.
+ !       vint = SUM( fp(i1:i2) * f(i1:i2) * weight(i1:i2) / gridr(i1:i2) )
+ !       if ( l < lp ) then
+ !          vint = ideriv - (l + 1.0) * vint
+ !       else if ( l > lp) then
+ !          vint = ideriv + dble(l) * vint
+ !       end if
+ !       
+ !       Coeff = 0d0 ! Length Guage Block Varsholovich pg 145 
+ !       if ( dM == 0) then ! Parallel Transitions <z> 
+ !          Coeffpar = sqrt( ( dble(l) + 0.5 + dble(dL) * 0.5 ) ** 2.0 - dble(ma * ma)) 
+ !       end if
+ !       if ( ABS(dM) == 1) then
+ !          if (ma < map  .AND. l < lp   ) then  ! Perpendicular Transitions <x +/- iy> 
+ !             Coeffperp = sqrt(dble((l + ma + 2 ) * (l + ma + 1)))
+ !          else if (  ma > map  .AND. l < lp ) then
+ !             Coeffperp = - sqrt(dble((l - ma + 2) * (l - ma + 1)))  
+ !          else if (  ma < map  .AND. l > lp  ) then         
+ !             Coeffperp = - sqrt(dble((l - ma ) * (l - ma - 1)))  
+ !          else if (  ma > map  .AND. l > lp ) then
+ !             Coeffperp = sqrt(dble((l + ma ) * (l + ma - 1)))               
+ !          end if
+ !          Coeffperp = Coeffperp /  sqrt(2.0)                 
+ !       end if
+ !       
+ !       Coeffpar = Coeffpar / sqrt(temp) 
+ !       Coeffperp = Coeffperp / sqrt(temp) 
+ !       
+ !       result_lpar = temp_lpar +  CIp * CI * Coeffpar * nnpRnn 
+ !       result_lperp = temp_lperp +  CIp * CI * Coeffperp * nnpRnn 
+ !       result_vpar = temp_vpar +  CIp * CI * Coeffpar * vint
+ !       result_vperp = temp_vperp +  CIp * CI * Coeffperp * vint
+ !       temp_lpar = result_lpar
+ !       temp_lperp = result_lperp
+ !       temp_vpar = result_vpar
+ !       temp_vperp = result_vperp
+ !          
+ !    end do ! ne RHS one-electron functions
+ !    
+ ! end do    ! nep LHS one-electron functions
+ ! 
+ ! if((present(rlpar).and.present(rvpar)) .and. (present(rlperp) .and. present(rvperp))) then
+ !   rlpar = result_lpar
+ !   rlperp = result_lperp
+ !   rvpar = result_vpar
+ !   rvperp = result_vperp
+ ! endif
 
-  if ( ABS(dM) == 1) then
-     result_l = 4.0 * ABS(TranEnergy) * result_l * result_l / 3.0 ! Added orbital degeneracy g = 2, should test for ma=+/-2 etc 
-     result_v = 4.0 * result_v * result_v / (3.0 * ABS(TranEnergy))
-  else 
-     result_l = 2.0 * ABS(TranEnergy) * result_l * result_l / 3.0 ! Need to add orbital degeneracy, prob best to do it in the coefficients
-     result_v = 2.0 * result_v * result_v / ( 3.0  * ABS(TranEnergy) )
-  end if
+ ! !if ( ABS(dM) == 1) then
+ ! !   result_l = 4.0 * ABS(TranEnergy) * result_l * result_l / 3.0 ! Added orbital degeneracy g = 2, should test for ma=+/-2 etc 
+ ! !   result_v = 4.0 * result_v * result_v / (3.0 * ABS(TranEnergy))
+ ! !else 
+ ! !   result_l = 2.0 * ABS(TranEnergy) * result_l * result_l / 3.0 ! Need to add orbital degeneracy, prob best to do it in the coefficients
+ ! !   result_v = 2.0 * result_v * result_v / ( 3.0  * ABS(TranEnergy) )
+ ! !end if
+
+ ! result_l = g * 2.0 * ABS(TranEnergy) * (result_lpar * result_lpar + result_lperp * resultl_perp) / 3.0
+ ! result_v = g * 2.0 * (result_vpar * result_vpar + result_vperp * result_vperp) / ( 3.0  * ABS(TranEnergy) )
    
 end subroutine oscstr1_st
 

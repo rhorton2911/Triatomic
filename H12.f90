@@ -907,192 +907,251 @@ end subroutine structure12
 !         Creates and diagonalises 2e hamiltonian for non-linear molecule
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine structure12group(basis,oneestates,num_states,indata)
-	  use numbers
-	  use basismodule
+    use numbers
+    use basismodule
     use input_data      !data_in
     use sturmian_class  
-		use state_class     !states data type
-	  use target_states   !Contains global variables for storing 1 and 2e target states
+    use state_class     !states data type
+    use target_states   !Contains TargetStates2el, state_class_module.f90
+    use target_states   !Contains global variables for storing 1 and 2e target states
     use MPI_module      !Contains myid global variable
     implicit none
     type(basis_sturmian_nr)::basis   !Sturmian basis used for 1e diagonalisation
-	  type(basis_state):: oneestates   !One electron spatial molecular orbitals
-		type(smallinput):: indata
-		integer:: ii, jj, counter
-		integer:: num_states !Size of one electron basis
-		!Variables controlling the configurations used
-		integer:: l_ion_core
-		integer, dimension(:), allocatable:: n_ion_core, nk1, nk2
-		!List of configurations
-		integer:: is !Spin
-		integer:: numcon
-		!repo1, repo2 replace mo1, mo2 as m proj goes to group irrep in
-		!non-linear case
-		integer, dimension(:), allocatable:: no1, repo1, no2, repo2
-		integer:: l12max
-		!Configuration indices and matrix elements
-		real(dpf), dimension(:,:), allocatable:: H, b
-		real(dpf):: Helement, belement
-		integer:: nc, ncp
-		integer:: nsp1, nsp2, nsp1p, nsp2p 
+    type(basis_state):: oneestates   !One electron spatial molecular orbitals
+    type(smallinput):: indata
+    integer:: ii, jj, counter
+    integer:: num_states !Size of one electron basis
+    logical:: hlike
+    integer:: maxstates
+    !Variables controlling the configurations used
+    integer:: l_ion_core
+    integer, dimension(:), allocatable:: n_ion_core, nk1, nk2
+    !List of configurations
+    integer:: is !Spin
+    integer:: numcon
+    integer:: par
+    real(dpf):: mval
+    integer, dimension(:), allocatable:: phase
+    integer:: mode, basis_type
+    type(state),pointer :: tempstate
+    !repo1, repo2 replace mo1, mo2 as m proj goes to group irrep in
+    !non-linear case
+    integer, dimension(:), allocatable:: no1, repo1, no2, repo2
+    integer:: l12max
+    !Configuration indices and matrix elements
+    real(dpf), dimension(:,:), allocatable:: H, b
+    real(dpf):: Helement, belement
+    integer:: nc, ncp
+    integer:: nsp1, nsp2, nsp1p, nsp2p 
     integer:: repnsp1, repnsp2,repnsp1p,repnsp2p
-		integer:: num_4econfigs, numloops
-		integer, dimension(:), allocatable:: nclist, ncplist
-		integer:: rep, val
-		!Required inputs for lapack routine dsygvx
-		real*8:: abstol
-		real*8, dimension(:), allocatable:: w, work
-		real*8, dimension(:,:), allocatable:: ci
-		integer, dimension(:), allocatable:: iwork, ifail
-		integer:: info, lwork, nfound
+    integer:: num_4econfigs, numloops
+    integer, dimension(:), allocatable:: nclist, ncplist
+    integer:: rep, val
+    !Required inputs for lapack routine dsygvx
+    real*8:: abstol
+    real*8, dimension(:), allocatable:: w, work
+    real*8, dimension(:,:), allocatable:: ci
+    integer, dimension(:), allocatable:: iwork, ifail
+    integer:: info, lwork, nfound
     real*8, external :: DLAMCH
+    !File IO variables
+    character(len=100):: line
+  
 
 			
-		!do ii = 1, oneestates%Nmax
+    !do ii = 1, oneestates%Nmax
+    !   print*, oneestates%b(ii)%energy
+    !end do
+
+    !counter = 1
+    !do ii = 1, oneestates%Nmax
 		!   print*, oneestates%b(ii)%energy
-		!end do
+    !  ! print*, "NEW BASIS SIZE: ", oneestates%b(ii)%nam
+    !  ! do jj = 1, oneestates%b(ii)%nam
+    !  !    print*, basis%b(counter)%k, basis%b(counter)%l, basis%b(counter)%m
+    ! 	!	 counter = counter + 1
+    ! 	!end do 
+    !end do
+    !stop
+    
+    !l12max = data_in%l12max
+ 
 
-    counter = 1
-    do ii = 1, oneestates%Nmax
-		   print*, oneestates%b(ii)%energy
-      ! print*, "NEW BASIS SIZE: ", oneestates%b(ii)%nam
-      ! do jj = 1, oneestates%b(ii)%nam
-      !    print*, basis%b(counter)%k, basis%b(counter)%l, basis%b(counter)%m
-     	!	 counter = counter + 1
-     	!end do 
+    maxstates=0 
+    do mode = 0, 1  !mode=0 (count states), mode=1 (diagonisalise H12)
+       if (mode .eq. 1) then
+          !maxstates counted when mode=0
+          hlike = .false.
+          call new_basis_st(TargetStates2el,maxstates,hlike,basis_type)
+       end if
+    
+       do is = 0, 1 !Spin loop
+          !Call config12 to set up list of configurations to include: no1, mo1, no2, mo2 arrays
+          numcon = oneestates%Nmax**2
+          allocate(no1(numcon), repo1(numcon))
+          allocate(n_ion_core(numcon))
+          no1(:) = 0
+          repo1(:) = 0
+          numcon = 0
+
+          l_ion_core = 0         
+          n_ion_core(:) = 0
+
+          !Call to find number of configurations to use
+          call config12_tmp_st_group(oneestates, is, l12max, l_ion_core, n_ion_core, numcon, no1, repo1)
+          if (mode .eq. 0) then !Count basis size
+             maxstates=maxstates + numcon
+          end if
+
+          if(allocated(no1)) deallocate(no1,repo1)
+          if(allocated(no2)) deallocate(no2,repo2) !coded like this for a reason
+
+          if (mode .eq. 1) then !Perform structure
+             allocate(no1(numcon),repo1(numcon),no2(numcon),repo2(numcon))
+             no1(:) = 0
+             repo1(:) = 0 
+             no2(:) = 0
+             repo2(:) = 0
+             !Create list of configurations 
+             rep = 3  !Index of irrep of symmetry group 
+
+             !Produces lists no1, no2 of indices of one-electron states to use
+             !to build two electron configs based on symmetry rules, etc.
+             call config12_st_group(oneestates, rep,  is, l12max, l_ion_core, n_ion_core, numcon, no1, repo1, no2, repo2)
+
+             !Fill arrays with indices of pairs of 2e configs
+             num_4econfigs = numcon*(numcon+1)/2
+             allocate(nclist(num_4econfigs), ncplist(num_4econfigs))
+             nclist(:) = 0
+             ncplist(:) = 0
+
+             !Setup nc and ncp lists to index the set of PAIRS of 2e configurations
+             numloops = 0
+             do ii=1, numcon
+                do jj = ii, numcon
+                   numloops = numloops + 1
+                   nclist(numloops) = ii
+                   ncplist(numloops) = jj
+                end do
+             end do
+
+             if (myid==0) write(*,*) 'Spin = ', is
+             if (myid==0) write(*,*) 'Number of 2e configurations = ', numcon
+
+             !Declare H and b matrices
+             allocate(H(numcon,numcon), b(numcon,numcon))
+             
+             H(:,:) = 0.0_dpf
+             b(:,:) = 0.0_dpf
+             !do ii = 1, oneestates%Nmax
+             !   nsp1 = get_nam(oneestates%b(ii))
+             !      print*, oneestates%b(ii)%energy, nsp1
+             !      do jj = 1, nsp1
+             ! 	   val = get_na(oneestates%b(ii),jj,1)
+             !      print*, val, basis%b(val)%l, basis%b(val)%m
+             !   end do
+             !end do
+             !stop
+             
+             !Calculate H12 interaction matrix elements <pn|H|n>, 
+             !|n> = |e1> * |e2> and |np> = |e1p> * |e2p>
+             do jj = 1, num_4econfigs
+                nc = nclist(jj)
+                ncp = ncplist(jj)
+
+                
+                !Indices of 1e molcule orbitals used in 2e configurations |n> and |np> for a given spin
+                nsp1 = no1(nc) 
+                nsp2 = no2(nc) 
+                nsp1p = no1(ncp) 
+                nsp2p = no2(ncp) 
+
+                !print*, "nsp1/2: ", nsp1, nsp2, "nsp1/1p: ", nsp1p, nsp2p
+
+                repnsp1 = repo1(nc) 
+                repnsp2 = repo2(nc) 
+                repnsp1p = repo1(ncp) 
+                repnsp2p = repo2(ncp) 
+
+                call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+                !call H12me_st_group_nonortog(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+
+                H(nc, ncp) = Helement
+                H(ncp, nc) = Helement
+                b(nc, ncp) = belement
+                b(ncp, nc) = belement
+                !print*, nc, ncp, Helement, belement
+             end do
+
+
+             !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
+             allocate(work(1))
+             allocate(w(numcon))    !Stores eigenvalues
+             allocate(iwork(5*numcon))
+             allocate(ifail(numcon))
+             allocate(ci(numcon,numcon))
+             lwork = -1
+             abstol = 2.0_dpf*DLAMCH('S') !twice underflow threshold for doubles
+             info = 0
+             nfound = 0
+              		 
+             !Workspace query with lwork=-1
+             call DSYGVX(1, 'V', 'I', 'U', numcon, H, numcon, b, numcon,    &
+             0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
+             iwork, ifail, info)
+
+             lwork = int(work(1))
+             deallocate(work)
+             allocate(work(lwork))
+
+             !Perform diagonialisation
+             call DSYGVX(1, 'V', 'I', 'U', numcon, H, numcon, b, numcon,    &
+             0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
+             iwork, ifail, info) 
+             deallocate(work, iwork, ifail)
+
+             !Save results of diagonalisation in TargetStates2el
+             if (allocated(phase)) then
+                deallocate(phase)
+             end if
+             allocate(phase(numcon))
+             phase(:) = (-1)**is
+             do ii = 1, numcon
+                !Resolved sign problem
+                if ( sum(ci(:,ii)) .lt. 0.0_dpf) then
+                   ci(:,ii) = -ci(:,ii)
+                end if
+
+                TargetStates2el%Nstates = TargetStates2el%Nstates + 1
+                tempstate => TargetStates2el%b(TargetStates2el%Nstates)
+                mval =  0.0_dpf  !m is not a good quantum number, set to zero
+                par =   0  !Neither is parity 
+                call construct_st(tempstate,hlike,mval,par,dble(is),w(ii),ii,numcon,ci(:,ii),no1,repo1,no2,repo2,phase)
+                tempstate%label = '-' 
+             end do
+             deallocate(phase)
+             deallocate(no1, repo1, no2, repo2)
+             deallocate(nclist, ncplist, H, b)
+             deallocate(w,ci)
+          end if
+          deallocate(n_ion_core)
+       end do !is loop
+    end do  !mode loop
+
+    call sort_by_energy_basis_st(TargetStates2el)
+
+    open(81,file='2eenergies.txt')
+    write(81,*) "Two Electron States, Target Name: H3+"
+    write(81,*) "Nuclear Geometry:                   (R1, R2, R3)= ", indata%R(1), indata%R(2), indata%R(3)
+    write(81,*) "                        (theta1, theta2, theta3)= ", indata%theta(1), indata%theta(2), indata%theta(3)
+    write(81,*) "                              (phi1, phi2, phi3)= ", indata%phi(1), indata%phi(2), indata%phi(3)
+    write(81,*) "N     Label       S     E(a.u)"
+    do ii = 1, TargetStates2el%Nstates
+       write(line,"(I6,6X,A6,5X,I1,3X,f18.10)") ii, TargetStates2el%b(ii)%label, int(TargetStates2el%b(ii)%spin), TargetStates2el%b(ii)%energy
+       write(81,*) ADJUSTL(TRIM(line))
     end do
-	  stop
 
-	  !l12max = data_in%l12max
-
-	  open(81,file='2eenergies.txt')
-	  !Loop over spin
-	  do is = 0, 1
-   	   !Call config12 to set up list of configurations to include: no1, mo1, no2, mo2 arrays
-   	   numcon = oneestates%Nmax**2
-   	   allocate(no1(numcon), repo1(numcon))
-			 allocate(n_ion_core(numcon))
-   	   no1(:) = 0
-   	   repo1(:) = 0
-			 numcon = 0
-
-   	   l_ion_core = 0         
-			 n_ion_core(:) = 0
-   
-			 !Call to find number of configurations to use
-   	   call config12_tmp_st_group(oneestates, is, l12max, l_ion_core, n_ion_core, numcon, no1, repo1)
-
-       if(allocated(no1)) deallocate(no1,repo1)
-       if(allocated(no2)) deallocate(no2,repo2) !coded like this for a reason
-			 allocate(no1(numcon),repo1(numcon),no2(numcon),repo2(numcon))
-			 no1(:) = 0
-			 repo1(:) = 0 
-   	   no2(:) = 0
-   	   repo2(:) = 0
-			 !Create list of configurations 
-			 rep = 3  !Index of irrep of symmetry group 
-
-			 !Produces lists no1, no2 of indices of one-electron states to use
-			 !to build two electron configs based on symmetry rules, etc.
-   	   call config12_st_group(oneestates, rep,  is, l12max, l_ion_core, n_ion_core, numcon, no1, repo1, no2, repo2)
-
-			 !Fill arrays with indices of pairs of 2e configs
-			 num_4econfigs = numcon*(numcon+1)/2
-			 allocate(nclist(num_4econfigs), ncplist(num_4econfigs))
-			 nclist(:) = 0
-			 ncplist(:) = 0
-
-			 !Setup nc and ncp lists to index the set of PAIRS of 2e configurations
-			 numloops = 0
-			 do ii=1, numcon
-			    do jj = ii, numcon
-						 numloops = numloops + 1
-             nclist(numloops) = ii
-						 ncplist(numloops) = jj
-				  end do
-			 end do
-
-			 if (myid==0) write(*,*) 'Spin = ', is
-       if (myid==0) write(*,*) 'Number of 2e configurations = ', numcon
-
-			 !Declare H and b matrices
-			 allocate(H(numcon,numcon), b(numcon,numcon))
-
-			 !do ii = 1, oneestates%Nmax
-			 !   nsp1 = get_nam(oneestates%b(ii))
-			 ! 	 print*, oneestates%b(ii)%energy, nsp1
-			 ! 	 do jj = 1, nsp1
-			 ! 	   val = get_na(oneestates%b(ii),jj,1)
-			 ! 		 print*, val, basis%b(val)%l, basis%b(val)%m
-			 !   end do
-			 !end do
-			 !stop
-
-			 !Calculate H12 interaction matrix elements <pn|H|n>, 
-			 !|n> = |e1> * |e2> and |np> = |e1p> * |e2p>
-			 do jj = 1, num_4econfigs
-			 	  nc = nclist(jj)
-			 	  ncp = ncplist(jj)
-
-			 	  !Indices of 1e molcule orbitals used in 2e configurations |n> and |np> for a given spin
-			 	  nsp1 = no1(nc) 
-			 	  nsp2 = no2(nc) 
-			 	  nsp1p = no1(ncp) 
-			 	  nsp2p = no2(ncp) 
-
-          repnsp1 = repo1(nc) 
-          repnsp2 = repo2(nc) 
-          repnsp1p = repo1(ncp) 
-          repnsp2p = repo2(ncp) 
-
-			    call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
-					!call H12me_st_group_nonortog(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
-
-			 	  H(nc, ncp) = Helement
-			 	  H(ncp, nc) = Helement
-			 	  b(nc, ncp) = belement
-			 	  b(ncp, nc) = belement
-					!print*, nc, ncp, Helement, belement
-			 end do
-
-       !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
-       allocate(work(1))
-			 allocate(w(numcon))    !Stores eigenvalues
-			 allocate(iwork(5*numcon))
-			 allocate(ifail(numcon))
-			 allocate(ci(numcon,numcon))
-			 lwork = -1
-       abstol = 2.0_dpf*DLAMCH('S') !twice underflow threshold for doubles
-			 info = 0
-			 nfound = 0
-			 
-			 !Workspace query with lwork=-1
-       call DSYGVX(1, 'V', 'I', 'U', numcon, H, numcon, b, numcon,    &
-       0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
-			 iwork, ifail, info)
-
-       lwork = int(work(1))
-       deallocate(work)
-       allocate(work(lwork))
-
-			 !Perform diagonialisation
-       call DSYGVX(1, 'V', 'I', 'U', numcon, H, numcon, b, numcon,    &
-       0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
-			 iwork, ifail, info) 
-
-			 deallocate(work, iwork, ifail)
-
-			 write(81,*), "ENERGIES: H3+ states, S= ", is
-			 do ii = 1, min(8,numcon)
-			    write(81,*), ii, w(ii)
-			 end do
-
-
-			 deallocate(no1, repo1, no2, repo2, n_ion_core)
-	     deallocate(nclist, ncplist, H, b)
-			 deallocate(w,ci)
-	  end do
-	  close(81)
+    close(81)
 
     
 end subroutine structure12group
@@ -1648,17 +1707,17 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
 
   ico = 0
   do nst1=1,Nmax
-	   repnst1 = -1
-	   m1_majconf = get_m_majconf(TargetStates1el%b(nst1))
+     repnst1 = -1
+     m1_majconf = get_m_majconf(TargetStates1el%b(nst1))
      l1_majconf = get_l_majconf(TargetStates1el%b(nst1))
      n1_majconf = get_n_majconf(TargetStates1el%b(nst1))
 
      if(myid==0 .and. data_in%print_1el_basis) then
        if(get_energy(TargetStates1el%b(nst1)) == 0.0d0) then
          orb_type = 'Laguerre'
-				 mval = m1_majconf
+	 mval = m1_majconf
          write(666,'(I5.1,2X,I1,2A, 2X, I2.1, 2X, I2.1, 2X, A8)') nst1, n1_majconf, lchars(l1_majconf+1:l1_majconf+1), &
-				 Mchars(abs(mval)+1:abs(mval)+1), mval, get_par(TargetStates1el%b(nst1)), orb_type 
+	 Mchars(abs(mval)+1:abs(mval)+1), mval, get_par(TargetStates1el%b(nst1)), orb_type 
          !write(666,'(I5.1,2X,A4 X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, orb_type
        else
          orb_type = '   MO   '
@@ -1668,18 +1727,18 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
 
      do nst2=1,Nmax
 !!$--------------------- logic block: include or not config ------------
-				!For now just use frozen core approximation
-				if (nst1 .gt. 1) then
-				   cycle
-			  end if
+	!For now just use frozen core approximation
+	if (nst1 .gt. 1) then
+	   cycle
+	end if
 
         !if(mnst1+mnst2 .ne. ma) cycle  !Replace with group representation condition
         if(nst1 .eq. nst2) then
            if(is .eq. 1) cycle  !spin symmetry condition
         endif
         
-			  repnst2 = -1
-	      m2_majconf = get_m_majconf(TargetStates1el%b(nst2))
+	repnst2 = -1
+	m2_majconf = get_m_majconf(TargetStates1el%b(nst2))
         l2_majconf = get_l_majconf(TargetStates1el%b(nst2))
         n2_majconf = get_n_majconf(TargetStates1el%b(nst2))
        
@@ -1693,8 +1752,8 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
 
         ico = ico + 1
   
-				m1val = m1_majconf 
-				m2val = m2_majconf 
+	m1val = m1_majconf 
+	m2val = m2_majconf 
         if(myid==0 .and. data_in%print_2el_config .and. rep >= 0) write(777,'(I5,2X,2(I1,2A,5X),3X,2(I2.1,2X), 2(A6))') ico, &
           &n1_majconf, lchars(l1_majconf+1:l1_majconf+1), Mchars(abs(m1val)+1:abs(m1val)+1), &
           &n2_majconf, lchars(l2_majconf+1:l2_majconf+1), Mchars(abs(m2val)+1:abs(m2val)+1), replabels(rep), replabels(rep), &
@@ -2567,7 +2626,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
   implicit none
 
   integer, intent(in):: is
-	type(smallinput):: indata
+  type(smallinput):: indata
   type(basis_state), intent(in):: TargetStates1el
   type(basis_sturmian_nr), intent(in):: bst
   integer, intent(in):: nst1,nst2,nst1p,nst2p
@@ -2579,8 +2638,8 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
   integer:: mnst1,mnst2,mnst1p,mnst2p
   real*8:: tmp, tmpCI1, tmpCI1p, tmpCI2, tmpCI2p, ttt, result, oneelME, twoelME
   integer:: i1max, i2max, i1pmax, i2pmax
-	integer:: ii, jj
-	real*8:: Rij, cosij
+  integer:: ii, jj
+  real*8:: Rij, cosij
   
   resultH = 0d0
   resultb = 0d0
@@ -2626,13 +2685,13 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
               nsp2p = get_na(TargetStates1el%b(nst2p),i2p,1)
               tmpCI2p = get_CI(TargetStates1el%b(nst2p),i2p)
               p2p => bst%b(nsp2p)
-              
+
               tmp = tmpCI1 * tmpCI1p * tmpCI2 * tmpCI2p
 
-							mnst1 = get_ang_mom_proj_nr(p1)
-							mnst2 = get_ang_mom_proj_nr(p2)
-							mnst2p = get_ang_mom_proj_nr(p2p)
-							mnst1p = get_ang_mom_proj_nr(p1p)
+	      mnst1 = get_ang_mom_proj_nr(p1)
+	      mnst2 = get_ang_mom_proj_nr(p2)
+	      mnst2p = get_ang_mom_proj_nr(p2p)
+	      mnst1p = get_ang_mom_proj_nr(p1p)
 
               call V12me_group(indata,p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
               
@@ -2678,12 +2737,13 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
                  
                  tmp = tmpCI1 * tmpCI1p * tmpCI2 * tmpCI2p
 
-								 mnst1 = get_ang_mom_proj_nr(p1)
-								 mnst2 = get_ang_mom_proj_nr(p2)
-								 mnst2p = get_ang_mom_proj_nr(p2p)
-								 mnst1p = get_ang_mom_proj_nr(p1p)
+                 mnst1 = get_ang_mom_proj_nr(p1)
+                 mnst2 = get_ang_mom_proj_nr(p2)
+                 mnst2p = get_ang_mom_proj_nr(p2p)
+                 mnst1p = get_ang_mom_proj_nr(p1p)
+
                  
-								 !Calculates V12 matrix elements between functions with well defined lm
+                 !Calculates V12 matrix elements between functions with well defined lm
                  call V12me_group(indata,p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
                  
                  ttt = ttt + tmp * result
@@ -2702,11 +2762,11 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-				         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
+	 cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
          Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-				 2*indata%R(ii)*indata%R(jj)*cosij)
-	       !Account for degenerate case where nuclei coincide
+	       2*indata%R(ii)*indata%R(jj)*cosij)
+	 !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
             tmp = tmp + (dble(indata%charge(ii)*indata%charge(jj))/Rij) * resultb
          end if
@@ -2759,10 +2819,10 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   real*8, pointer, dimension(:):: f1, f1p, f2, f2p 
   real*8, dimension(grid%nr):: temp, fun, fun1, fun11
   real*8:: rl1,rl2,rl1p,rl2p,rm1, rm2,rm1p,rm2p
-	real*8:: factor, qmin, qmax, q, pi
-	type(smallinput):: indata
+  real*8:: factor, qmin, qmax, q, pi
+  type(smallinput):: indata
 
-	pi = 4.0d0*atan(1.0d0)
+  pi = 4.0d0*atan(1.0d0)
 
   result = 0d0
 
@@ -2779,6 +2839,8 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   rm2 = m2
   rm1p = m1p
   rm2p = m2p
+
+  !print*, "L2p, m2p: ", l2p, m2p, "L2, m2: ", l2, m2
   
   f1 => fpointer(pn1)
   f1p => fpointer(pn1p)
@@ -2811,41 +2873,41 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   lammin=max(abs(l1-l1p),abs(l2-l2p))
   lammax=min(l1+l1p,l2+l2p)
 
-	if (indata%harmop .eq. 1) then
-	   lammin = 0
-	end if
+  if (indata%harmop .eq. 1) then
+     lammin = 0
+  end if
 
   do lam=lammin,lammax
      if (indata%harmop .eq. 0) then
-	      !Complex harmonics, only one q gives non-zero gaunt coeffs, no loop
-	      qmin = lam
-				qmax = lam
-	   else if (indata%harmop .eq. 1) then
+	!Complex harmonics, only one q gives non-zero gaunt coeffs, no loop
+	qmin = lam
+	qmax = lam
+     else if (indata%harmop .eq. 1) then
         !Real harmonics, multiple q give non-zero gaunt coeffs, loop
-				qmin = -lam
-				qmax = lam
-	   else
-				print*, "ERROR: neither real nor complex harmonics selected, stopping. V12me_group"
-				stop
-	   end if
+	qmin = -lam
+	qmax = lam
+     else
+        print*, "ERROR: neither real nor complex harmonics selected, stopping. V12me_group"
+        stop
+     end if
 
 	
      do q = qmin, qmax
         rlam = lam
 
         if (indata%harmop .eq. 0) then
-					 !Regular gaunt coeffs vanish for q != m1p - m1
+	   !Regular gaunt coeffs vanish for q != m1p - m1
            rq = m1p - m1
            tmp1 = (-1)**(nint(rq))*Yint(rl1,rm1,rlam,-rq,rl1p,rm1p)
            tmp2 = Yint(rl2,rm2,rlam,rq,rl2p,rm2p)
-			  else if (indata%harmop .eq. 1) then
-					 !Real gaunt coeffs accept four different values of q
+        else if (indata%harmop .eq. 1) then
+	   !Real gaunt coeffs accept four different values of q
            rq = q
-					 tmp1 = Xint(rl1,rm1,rlam,rq,rl1p,rm1p)
-					 tmp2 = Xint(rl2,rm2,rlam,rq,rl2p,rm2p)
-					 factor = 4*pi/dble(2*lam+1) !4pi/(2l+1) not included in Xint
-					 tmp1 = tmp1*factor
-			  end if
+           tmp1 = Xint(rl1,rm1,rlam,rq,rl1p,rm1p)
+           tmp2 = Xint(rl2,rm2,rlam,rq,rl2p,rm2p)
+           factor = 4*pi/dble(2*lam+1) !4pi/(2l+1) not included in Xint
+           tmp1 = tmp1*factor
+	end if
 
         tmp = tmp1 * tmp2
 

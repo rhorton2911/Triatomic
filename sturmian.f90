@@ -694,6 +694,7 @@ contains
 
 	  call new_basis(self,nall)
 
+    lPrev = -1
 	  !call construct_all_nr to construct sturmian basis as per usual. 
 	  call construct_all_nr(selftemp,dataARG)
 	  counter = 1
@@ -709,6 +710,7 @@ contains
 						   i2 = get_maxf_nr(selftemp%b(ind))
                    
                call init_function_nr_m(self%b(counter), l, m, kk, alpha, i1, i2, selftemp%b(ind)%f, grid%nr)
+               !print*, l, m, kk
 
 							 counter = counter + 1
    					end do

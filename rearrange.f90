@@ -21,7 +21,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
   integer, dimension(TargetStates%Nmax,(LMAX+1)**2):: av_n_newf ! an array that will store  n values 
   integer, dimension(TargetStates%Nmax,(LMAX+1)**2):: av_m_newf ! an array that will store  m values 
   integer, dimension(TargetStates%Nmax):: num_n_newf
-  type(basis_sturmian_nr):: bst_rearr ! these are sturmian basis (depend on k and l)
+  type(basis_sturmian_nr):: bst_rearr ! these are sturmian basis (depend on k and l and m)
   type(state), pointer:: OneState !( a pointer to) one target state only
   integer:: n
   integer:: l, lfn
@@ -75,23 +75,25 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
      OneState => TargetStates%b(nst)
 
      ncm = get_nam(OneState) ! ncm = nam which is the size of the array na(:), which is also the number of CI coeff
+     !print*, "STATE: ", nst
      do nc = 1,ncm ! go through every Lagueere basis (psi_kl(r)X_lm(theta,phi)) of that target state
 !!$---------------------------------------
         rCI = get_CI(OneState, nc)
+        !print*, "CONFIG: ", bst_nr%b(nc)%l, bst_nr%b(nc)%m, bst_nr%b(nc)%k, rCI
         if(rCI .eq. 0.0) cycle
 !!$----------------------------------------
         n = get_na(OneState,nc,1) ! which is na(nc), where nc = 1,2,...ncm
         pn => bst_nr%b(n) 
         l = get_ang_mom(pn) 
-				m = get_ang_mom_proj(pn)
+	m = get_ang_mom_proj(pn)
 
         icheck = 0  ! check if this value of  lm  is already counted
         do icl=1,ictr
            if(l .eq. av_l_newf(nst,icl)) then
-							if (m .eq. av_m_newf(nst,icl)) then
+	      if (m .eq. av_m_newf(nst,icl)) then
                  icheck = 1   ! found it counted
                  exit
-							end if
+	      end if
            endif
         enddo
         
@@ -100,7 +102,8 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
            tot_numf = tot_numf + 1
            av_l_newf(nst,ictr) = l                         
            av_n_newf(nst,ictr) = tot_numf     
-					 av_m_newf(nst,ictr) = m
+	   av_m_newf(nst,ictr) = m
+           !print*, "NST, l, m: ", nst, l, m
         endif
 
      end do ! end nc loop
@@ -116,7 +119,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
   nspm_loc = 0
   do nst = 1, nstmax ! go through every target state
      OneState => TargetStates%b(nst)
-	   !Angular momentum projection is not a good quantum number for H3+, loop over m
+     !Angular momentum projection is not a good quantum number for H3+, loop over m
      !mst = get_ang_mom_proj(OneState)
      ncm = get_nam(OneState)
 
@@ -125,7 +128,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
      do icl=1, num_n_newf(nst) ! go through every lm of the target state
         licl = av_l_newf(nst, icl)
         nicl = av_n_newf(nst, icl)
-				micl = av_m_newf(nst, icl)
+        micl = av_m_newf(nst, icl)
 
         nspm_loc = nspm_loc + 1
 
@@ -146,10 +149,10 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
 
            pn => bst_nr%b(n) 
            lfn = get_ang_mom(pn)
-				   mfn = get_ang_mom_proj(pn)
+           mfn = get_ang_mom_proj(pn)
 
            if(lfn .eq. licl) then
-							if (mfn .eq. micl) then
+	      if (mfn .eq. micl) then
                  fn => fpointer(pn) ! means f points to bst_nr%b(n)%f
                  minf = get_minf(pn)
                  maxf = get_maxf(pn)
@@ -163,21 +166,20 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
                  
                  maxf_all = max(maxf_all, maxf)
                  minf_all = min(minf_all, minf)
-				      end if
+	      end if
            end if
         end do ! nc
 
-!!$ copy arrfnew array for that particular lfn into bst_rearr%b(icntr)
+        !!$ copy arrfnew array for that particular lfn into bst_rearr%b(icntr)
         if (.not.spheroidal) then
            call init_function(bst_rearr%b(nspm_loc),licl,micl,nspm_loc,alpha,minf_all,maxf_all,arrfnew,grid%nr)
         else
         !   call init_function(bst_rearr%b(nspm_loc), icl,licl,mst,alpha, minf_all,maxf_all,arrfnew,arrgnew)
-				   print*, "ERROR: spheroidal coordinates not yet implemented for H3+ mode. Stopping."
-				   stop
+           print*, "ERROR: spheroidal coordinates not yet implemented for H3+ mode. Stopping."
+           stop
         end if
 
-     end do
-     
+     end do   
   end do ! nst
   
   if(nspm_loc .ne. tot_numf) then
@@ -200,14 +202,14 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
      do icl_i  = 1, num_n_newf(nsti) ! walk through all lm for that target state
         licl_i = av_l_newf(nsti, icl_i)
         nicl_i = av_n_newf(nsti, icl_i)
-				micl_i = av_m_newf(nsti, icl_i)
+	micl_i = av_m_newf(nsti, icl_i)
 
            do nstf = 1, nstmax
               OneState_f => TargetStates%b(nstf)
               ncm_f = get_nam(OneState_f)
               !mstf = get_ang_mom_proj(OneState_f)
  
-							 !M is no longer a good quantum number
+	       !M is no longer a good quantum number
 !              !!$ check the same M-state values
 !              if(msti .ne. mstf) then
 !                 do  icl_f  = 1, num_n_newf(nstf) ! walk through all l for that target state
@@ -225,7 +227,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
               do icl_f  = 1, num_n_newf(nstf) ! walk through all lm for that target state
                  licl_f = av_l_newf(nstf, icl_f) !!
                  nicl_f = av_n_newf(nstf, icl_f) !!
-								 micl_f = av_m_newf(nstf, icl_f)
+		 micl_f = av_m_newf(nstf, icl_f)
 
                  if(nicl_f .gt. nicl_i) cycle
 
@@ -236,27 +238,27 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
                     n_i = get_na(OneState_i,nci, 1)
                     pn_i => bst_nr%b(n_i)
                     lfn_i = get_ang_mom(pn_i)
-										mfn_i = get_ang_mom_proj(pn_i)
+		     mfn_i = get_ang_mom_proj(pn_i)
 
                     if(lfn_i .ne. licl_i) cycle
-										if (mfn_i .ne. micl_i) cycle 
+	            if (mfn_i .ne. micl_i) cycle 
                     rCI_i = get_CI(OneState_i, nci)
 
                     do ncf = 1, ncm_f
                        n_f = get_na(OneState_f,ncf, 1)
                        pn_f => bst_nr%b(n_f)
                        lfn_f = get_ang_mom(pn_f)
-											 mfn_f = get_ang_mom_proj(pn_f)
+		       mfn_f = get_ang_mom_proj(pn_f)
 
                        if(lfn_f .ne. licl_f) cycle
-											 if (mfn_f .ne. micl_f) cycle
+		       if (mfn_f .ne. micl_f) cycle
                        rCI_f = get_CI(OneState_f, ncf)
 
                        sum_new = sum_new + rCI_i * rCI_f * bst_nr%ortint(n_i,n_f)
                        if ( use_lag_ham1el ) then
                           !sum_two = sum_two + rCI_i * rCI_f * lag_ham1el_m(n_i,n_f,mstf) 
-													print*, "ERROR: ham1el_m option not yet implemented for H3+ calculation. Stopping"
-													stop
+                          print*, "ERROR: ham1el_m option not yet implemented for H3+ calculation. Stopping"
+                          stop
                        else
                           sum_two = sum_two + rCI_i * rCI_f * bst_nr%ham1el(n_i,n_f)
                        end if

@@ -19,8 +19,8 @@ OBJ= $(LEGACYHELPER) $(MCCCOBJ) basismodule.o $(STATECLASSOBJ) main.o
 #---------------------Choose compiler name depnding on machine ---------------------#
 HOSTNAME=$(shell hostname)
 $(info HOSTNAME is: $(HOSTNAME))
-ifneq (,$(findstring $(HOSTNAME),gadi-login))
-        #If current hostname is a gadi login node, use gadi-specific parameters
+ifneq (,$(findstring gadi-, $(HOSTNAME)))
+        #If current hostname is a gadi node, use gadi-specific parameters
 	FC=gfortran
 	LAPACKLIB= -lmkl_gf_lp64 -lmkl_core -lmkl_gnu_thread -lgomp -lm
 else

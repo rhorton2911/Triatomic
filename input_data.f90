@@ -76,7 +76,7 @@ module input_data
 
      logical :: combine_potl_files
 
-     logical:: hlike, good_parity           ! true for quasi one-electron atoms, false for quasitwo-electron atoms
+     logical:: hlike, good_parity, good_m           ! true for quasi one-electron atoms, false for quasitwo-electron atoms
      integer:: iBorn_amp       ! 0 if no analytical Born amp files to be written to disk, 1 if amp files to be written to disk
      integer:: lbnd_max   ! max value of L for which bound states of asymptotic potential (Zasym/r + V_{dw}(r) should be calculated
      logical:: non_uniq   ! We solve for non-uniqueness. ifirst = 1, theta /= 0 and Zproj == -1d0
@@ -291,6 +291,7 @@ contains
       self%num_nat_orb = 0
       self%only_nat_orbs = .false.
       self%good_parity = .true.
+      self%good_m = .true.
       self%l_ps = -1
       self%optical = .false.
       self%no_second_spin_channel = .false.
@@ -582,6 +583,12 @@ contains
                     self%Z2 = 2
                     self%Zasym = 2
                     self%N_core_el = 0
+                  case('H3+')
+                    self%Z1 = 1
+                    self%Z2 = 1
+                    self%Zasym = 1
+                    self%N_core_el = 0
+                    self%good_m = .false. 
                   case default
                     call invalid_argument(label, block, self%target)
                     error stop
@@ -2209,6 +2216,7 @@ contains
        if (self%Z1 /= self%Z2) self%good_parity = .false.
        if (self%calculation_type==0 .and. self%origin/=0.5d0) self%good_parity = .false.
     end if
+
     
 !!$   Set hlike: correct for H, He, H2+, and H2. To be modified for complex molecules to account for core electrons
     if (self%Z1+self%Z2 - self%Zasym == 1) then   ! One-electron target.

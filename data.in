@@ -4,7 +4,7 @@
 #You may want to turn off text wrapping to read the comments...
 
 SCATTERING_SYSTEM
-  TARGET                    : H2                      #Target molecule name (H2+ / H2 / HeH+) - this determines target charge parameters
+  TARGET                    : H3+                      #Target molecule name (H2+ / H2 / HeH+) - this determines target charge parameters
   INTERNUCLEAR_SEPARATION   : 1.455                   #Separation between nuclei (in bohr radii)
   ORIGIN                    : 0.5                     #Position of spherical-coordinate origin (between 0 and 1, 0.5 = geometric centre of nuclei)
   PROJECTILE                : ELECTRON                #Projectile name (ELECTRON / POSITRON)
@@ -25,7 +25,7 @@ CALCULATION_MODES
 END
 
 OUTPUT
-  OSCILLATOR_STRENGTHS      : ON                      #Calculate and output oscillator strengths. ON or OFF
+  OSCILLATOR_STRENGTHS      : OFF                      #Calculate and output oscillator strengths. ON or OFF
   DIPOLE_MOMENTS            : OFF                     #Dipole moments
   DCS                       : OFF                     #Differential cross sections " "
   TV_FILES                  : OFF                     #"TV" files containing T- and V-matrix elements in easy to read form
@@ -39,8 +39,8 @@ END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
   LMAX                      : 3                       #Max orbital angular momentum, l=0,...,LMAX
-  BASIS_SIZE                : 20 #60-l                    #Number of basis functions per l
-  EXPONENTIAL_FALLOFF       : 2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
+  BASIS_SIZE                : 20  #60-l                    #Number of basis functions per l
+  EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
 ONE_ELECTRON_STATES                                   #Choose which one-electron states to keep
   M_MAX                     : 1                       #Maximum orb. ang. mom. proj. of one-electron states to keep (specify a number or "ALL")

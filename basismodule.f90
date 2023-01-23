@@ -599,7 +599,7 @@ module basismodule
                            angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dpf*pinum)) &
                  	         *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
                         else if (indata%harmop .eq. 1) then
-                 	         !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
+                 	   !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
                            angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
                         end if
 

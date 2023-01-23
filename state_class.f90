@@ -838,6 +838,7 @@ contains
   ! Shellsort algorithm
   subroutine sort_by_energy_basis_st(self)
     use MPI_module
+    use input_data
     implicit none
 
     type(basis_state), intent(inout):: self
@@ -871,28 +872,30 @@ contains
 !!$  Additional sorting to ensure that postive M is before negative M for the degenerate states
 !!$ do it as default
 !!$ for old runs (potl is already exists) we must call  check_potl_ordering(self) to use the same state ordering as in the potl file  - called from H12.f90
-    inquire(file='old_state_ordering', exist=oldyesno)
-    if(oldyesno) then
-       ! do nothing
-       if (myid==0) print*,'use old state ordering'
-    else
-       if (myid==0) print*,'use stable state ordering'
-       do i=1,N
-          if(self%b(i)%M .gt. 0) then
-             if(self%b(i)%M .eq. abs(self%b(i-1)%M) .and. self%b(i)%parity .eq. self%b(i-1)%parity .and. self%b(i)%spin .eq. self%b(i-1)%spin) then
-                if( abs(self%b(i)%energy - self%b(i-1)%energy) .lt. 1e-6) then
-                   call copy_st(Tmp,self%b(i))
-                   call copy_st(self%b(i),self%b(i-1))
-                   call copy_st(self%b(i-1),Tmp)
+    if (data_in%good_m) then
+       inquire(file='old_state_ordering', exist=oldyesno)
+       if(oldyesno) then
+          ! do nothing
+          if (myid==0) print*,'use old state ordering'
+       else
+          if (myid==0) print*,'use stable state ordering'
+          do i=1,N
+             if(self%b(i)%M .gt. 0) then
+                if(self%b(i)%M .eq. abs(self%b(i-1)%M) .and. self%b(i)%parity .eq. self%b(i-1)%parity .and. self%b(i)%spin .eq. self%b(i-1)%spin) then
+                   if( abs(self%b(i)%energy - self%b(i-1)%energy) .lt. 1e-6) then
+                      call copy_st(Tmp,self%b(i))
+                      call copy_st(self%b(i),self%b(i-1))
+                      call copy_st(self%b(i-1),Tmp)
+                   endif
                 endif
+                
              endif
-             
-          endif
-       enddo
-    endif
+          enddo
+       endif
 
-    inquire(file='state_order.in',exist=input_order)
-    if(input_order .and. .not. self%hlike) call reorder_states_2el(self)
+       inquire(file='state_order.in',exist=input_order)
+       if(input_order .and. .not. self%hlike) call reorder_states_2el(self)
+    end if
 
   end subroutine sort_by_energy_basis_st
 

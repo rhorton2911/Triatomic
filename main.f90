@@ -29,11 +29,11 @@
 program H3Plus
    use grid_radial
    use sturmian_class
-	 use state_class
+   use state_class
    use input_data !Defines global data_in variable
    use basismodule
    use numbers
-	 use ieee_arithmetic
+   use ieee_arithmetic
    implicit none
    
    type(smallinput):: indata
@@ -42,16 +42,16 @@ program H3Plus
    real(dpf), dimension(:), allocatable:: w
    real(dpf), dimension(:,:), allocatable:: z, wf !, B, H, KMat, 
    complex(dpf), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
-	 logical, dimension(:), allocatable:: use_list
+   logical, dimension(:), allocatable:: use_list
    complex(dpf), dimension(:,:,:), allocatable:: VRadMatEl
    !real(dpf), dimension(:,:), allocatable:: VReal
    !complex(dpf), dimension(:,:), allocatable:: VTemp
    real(dpf), dimension(:,:), allocatable:: realH, realB, realK
    real(dpf), dimension(:,:,:), allocatable:: angular
    integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list 
-	 real(dpf), dimension(:), allocatable::  energies
+   real(dpf), dimension(:), allocatable::  energies
    integer:: num_func, l, m, k, rad_func
-	 integer:: n
+   integer:: n
    integer:: num_lambda
    integer:: lblocksize
    integer:: nstates, ier
@@ -59,6 +59,8 @@ program H3Plus
    real(dpf):: Rij, cosij
    logical:: sorted, found
    real(dpf):: E1, E2, temp
+   real(dpf), dimension(:), allocatable:: func
+   character(len=40)::filename
    !Variables used to track program runtime
    character(len=8):: date1, date2
    character(len=10):: time1, time2
@@ -66,24 +68,26 @@ program H3Plus
    integer, dimension(8):: values1, values2
    integer:: hr1, hr2, sec1, sec2, mins1, mins2
    integer:: hrs, mins, secs
+   !Variables to control file io
+   logical:: writeWaveFunc = .false.
    !Sturmian data types: original basis, auxialliary basis summed over k
    type(basis_sturmian_nr)::basis
    integer:: i1, i2
-	 real(dpf):: largest, smallest, largestZ
-	 integer:: si, sj
-	 !Data required for calling lapack routine dsygv
-	 real(dpf), dimension(:), allocatable:: work
-	 integer:: lda, ldb
-	 integer:: lwork, info
-	 logical:: uselapack
-	 !Arrays for testing case
-	 integer, dimension(20):: testm, testl, testk
-	 integer:: numfound, u1, u2
-	 complex(dpf), dimension(:,:), allocatable:: tempK, tempB, KMatConroy
-	 !State basis type for storing one electron states
-	 type(basis_state):: oneestatebasis
-	 integer:: inum, ncm, counter
-	 integer, dimension(:), allocatable:: no1, no2, mo1, mo2, phase
+   real(dpf):: largest, smallest, largestZ
+   integer:: si, sj
+   !Data required for calling lapack routine dsygv
+   real(dpf), dimension(:), allocatable:: work
+   integer:: lda, ldb
+   integer:: lwork, info
+   logical:: uselapack
+   !Arrays for testing case
+   integer, dimension(20):: testm, testl, testk
+   integer:: numfound, u1, u2
+   complex(dpf), dimension(:,:), allocatable:: tempK, tempB, KMatConroy
+   !State basis type for storing one electron states
+   type(basis_state):: oneestatebasis
+   integer:: inum, ncm, counter
+   integer, dimension(:), allocatable:: no1, no2, mo1, mo2, phase
 
    !Intrinsic date and time subroutine
    call date_and_time(date1,time1,zone1,values1)
@@ -98,39 +102,39 @@ program H3Plus
    call setgrids(grid)
 
    call readInput(indata)
-	 uselapack = .true.
+   uselapack = .true.
 
    !Initialise sturmian data types, requires input data type defined in the MCCC code.
-	 if (indata%isoscop .eq. 0) then
+   if (indata%isoscop .eq. 0) then
       !call construct(basis, data_in)
-			call construct_all_nr_m(basis,data_in)
-	 else if (indata%isoscop .eq. 1) then
-			if (indata%conroybasis .eq. 1) then
-				 !Just for testing, remove
-				 indata%R(1) = 1.0
-				 indata%R(2) = 1.0
-				 indata%R(3) = 0.0
-				 indata%charge(1) = 1
-				 indata%charge(2) = 1
-				 indata%charge(3) = 0
-
-			   call construct_all_conroy_basis(basis, grid, indata, data_in, KMatConroy)
-			   !Write some basis functions to file for testing
-			   open(70,file='conroyfunc.txt')
-			   write(70,*) "r(a_0)  psi_(k,0,0)(k=1->5)"
-			   do ii = 1, grid%nr
-			   	 write(70,*) grid%gridr(ii), (basis%b(jj)%f(ii), jj=1, 5)
-			   end do
-			   close(70)
-				 stop
-			else
+      call construct_all_nr_m(basis,data_in)
+   else if (indata%isoscop .eq. 1) then
+      if (indata%conroybasis .eq. 1) then
+      	 !Just for testing, remove
+      	 indata%R(1) = 1.0
+      	 indata%R(2) = 1.0
+      	 indata%R(3) = 0.0
+      	 indata%charge(1) = 1
+      	 indata%charge(2) = 1
+      	 indata%charge(3) = 0
+      
+         call construct_all_conroy_basis(basis, grid, indata, data_in, KMatConroy)
+         !Write some basis functions to file for testing
+         open(70,file='conroyfunc.txt')
+         write(70,*) "r(a_0)  psi_(k,0,0)(k=1->5)"
+         do ii = 1, grid%nr
+         	 write(70,*) grid%gridr(ii), (basis%b(jj)%f(ii), jj=1, 5)
+         end do
+         close(70)
+      	 stop
+      else
          call construct(basis, data_in)
-				 !print*, indata%R(1), indata%R(2), indata%R(3)
-				 !print*, indata%theta(1), indata%theta(2), indata%theta(3)
-				 !print*, indata%phi(1), indata%phi(2), indata%phi(3)
-				 !print*, indata%charge(1), indata%charge(2), indata%charge(3)
-	    end if
-	 end if
+         !print*, indata%R(1), indata%R(2), indata%R(3)
+         !print*, indata%theta(1), indata%theta(2), indata%theta(3)
+         !print*, indata%phi(1), indata%phi(2), indata%phi(3)
+         !print*, indata%charge(1), indata%charge(2), indata%charge(3)
+      end if
+   end if
 
    nr = grid%nr
 
@@ -142,7 +146,7 @@ program H3Plus
    allocate(VPotTemp(nr, num_lambda))
    do ii = 1, 3
       call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
-			indata%phi(ii), indata%charge(ii), indata)
+	              indata%phi(ii), indata%charge(ii), indata)
       VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
    end do
    deallocate(VPotTemp)
@@ -162,10 +166,10 @@ program H3Plus
       stop
    end if
 
-	 !Defined arrays for test case
-	 testm(:) = indata%testm(:) 
-	 testl(:) = indata%testl(:)
-	 testk(:) = indata%testk(:) 
+   !Defined arrays for test case
+   testm(:) = indata%testm(:) 
+   testl(:) = indata%testl(:)
+   testk(:) = indata%testk(:) 
 
    !Define arrays to keep track of k,l,m values for each index
    !Indexing scheme: specify (l,m), then k goes from 1 to N_l for each such pair 
@@ -192,6 +196,7 @@ program H3Plus
 	          found = .false.
 	          n = 1
 	          do while (.not. found)
+               !print*, basis%b(n)%l, basis%b(n)%m, basis%b(n)%k, "L,K: ", l, k
 	             if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
 		              found = .true.
 	             else
@@ -299,98 +304,104 @@ program H3Plus
    realH(:,:) = real(H(:,:))
    realB(:,:) = real(B(:,:)) 
 
-	 if (indata%harmop .eq. 0) then
-			!Molecule has C_s symmetry if:
-			!(1)  R_1 != R_2
-			!(2)  nuclei 1 and two are not symmetric about z-axis
-			!(3)  nucleus 1 does not lie on z-axis (should never happen)
-			!Matrix elements have non-zero complex part in C_s symmetry
-			if (((abs(indata%R(2) - indata%R(3)) .gt. 0.0_dpf) .or. &
-					 (abs(abs(indata%theta(2)) - abs(indata%theta(3))) .gt. 0.0_dpf)) .or. &
-					 (abs(indata%theta(1)) + abs(indata%phi(1))) .gt. 0.0_dpf) then
-			   print*, "WARNING: complex spherical harmonics not yet implemented for C_s geometries. Stopping."	
-				 stop
-			end if
-	 end if
+   if (indata%harmop .eq. 0) then
+      !Molecule has C_s symmetry if:
+      !(1)  R_1 != R_2
+      !(2)  nuclei 1 and two are not symmetric about z-axis
+      !(3)  nucleus 1 does not lie on z-axis (should never happen)
+      !Matrix elements have non-zero complex part in C_s symmetry
+      if (((abs(indata%R(2) - indata%R(3)) .gt. 0.0_dpf) .or. &
+         (abs(abs(indata%theta(2)) - abs(indata%theta(3))) .gt. 0.0_dpf)) .or. &
+         (abs(indata%theta(1)) + abs(indata%phi(1))) .gt. 0.0_dpf) then
+         print*, "WARNING: complex spherical harmonics not yet implemented for C_s geometries. Stopping."	
+         stop
+      end if
+   end if
 
-	 largest = 0.0_dpf
-	 do ii = 1, num_func
-	    do jj = 1, num_func
-	       if (isnan(realH(ii,jj))) then
-						print*, "realH: ", ii,jj
-						print*, realH(ii,jj)
-						stop
-				 end if
-	       if (isnan(realB(ii,jj))) then
-						print*, "realB: ", ii,jj
-						stop
-				 end if
-	       if (.not. ieee_is_finite(realH(ii,jj))) then
-						print*, "realH infinite: ", ii,jj
-						print*, H(ii,jj)
-						print*, realH(ii,jj)
-						stop
-				 end if
-	       if (.not. ieee_is_finite(realB(ii,jj))) then
-						print*, "realB infinite: ", ii,jj
-						stop
-				 end if
-
-				 if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .lt. 0.0_dpf)) then
-				    largest = realH(ii,jj)
-				 end if
-			end do
-	 end do
-	 do ii = 1, num_func
-	    do jj = 1, num_func
-	       if (abs(realH(ii,jj)) .lt. 1E-8*abs(largest)) then
-						realH(ii,jj) = 0.0_dpf
-				 end if
-			end do
-	 end do
-	 print*, "Removed small matrix elements"
+   largest = 0.0_dpf
+   do ii = 1, num_func
+      do jj = 1, num_func
+         if (isnan(realH(ii,jj))) then
+            print*, "realH: ", ii,jj
+            print*, realH(ii,jj)
+            stop
+         end if
+         if (isnan(realB(ii,jj))) then
+            print*, "realB: ", ii,jj
+            stop
+         end if
+         if (.not. ieee_is_finite(realH(ii,jj))) then
+            print*, "realH infinite: ", ii,jj
+            print*, H(ii,jj)
+            print*, realH(ii,jj)
+            stop
+         end if
+         if (.not. ieee_is_finite(realB(ii,jj))) then
+            print*, "realB infinite: ", ii,jj
+            stop
+         end if
+   
+         if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .lt. 0.0_dpf)) then
+            largest = realH(ii,jj)
+         end if
+      end do
+   end do
+   do ii = 1, num_func
+      do jj = 1, num_func
+         if (abs(realH(ii,jj)) .lt. 1E-8*abs(largest)) then
+            realH(ii,jj) = 0.0_dpf
+         end if
+      end do
+   end do
+   print*, "Removed small matrix elements"
 
    allocate(w(num_func),z(num_func,num_func))
 
-	 !Diagonalise one-electron hamiltonian
-	 if (uselapack .eqv. .false.) then
+   !Diagonalise one-electron hamiltonian
+   if (uselapack .eqv. .false.) then
       print*, "CALL RSG"
       call rsg(num_func,num_func,realH,realB,w,1,z,ier)
    else
-			print*, "CALL DSYGV"
-	    lda = num_func
-	    ldb = num_func
-	    allocate(work(1))
-	    call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, -1, info) !-1 -> workspace query, get best lwork
-	    lwork = int(work(1))
-	    deallocate(work)
-	    allocate(work(lwork))
-	    call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, lwork, info) 
-	    z(:,:) = realH(:,:) !On exit, dsygv overwrites matrix with eigenvectors
-			deallocate(work)
-	 end if
+      print*, "CALL DSYGV"
+      lda = num_func
+      ldb = num_func
+      allocate(work(1))
+      call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, -1, info) !-1 -> workspace query, get best lwork
+      lwork = int(work(1))
+      deallocate(work)
+      allocate(work(lwork))
+      call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, lwork, info) 
+      z(:,:) = realH(:,:) !On exit, dsygv overwrites matrix with eigenvectors
+      deallocate(work)
+   end if
 
-	 !Find largest expansion coefficient, ignore those below a certain
-	 !magnitude for stability/to get rid of underflow 
-	 largestZ = 0.0_dpf
-	 do ii = 1, num_func
-	    do jj = 1, num_func
-	       if (abs(z(ii,jj)) .gt. abs(largestZ)) then
-						largestZ = z(ii,jj)
-				 end if
-			end do
-	 end do
-	 do ii = 1, num_func
-	    do jj = 1, num_func
-	       if ((abs(z(ii,jj)) .lt. 1E-10*abs(largestZ)) .and. (abs(z(ii,jj)) .gt. 0.0_dpf)) then
-						z(ii,jj) = 0.0_dpf
-				 end if
-			end do
-	 end do
-	 !Renormalise coefficients so norm is 1
-	 do ii = 1, num_func
-	    z(ii,:) = z(ii,:)/sum(z(ii,:)**2)
-	 end do
+   !Find largest expansion coefficient, ignore those below a certain
+   !magnitude for stability/to get rid of underflow 
+   largestZ = 0.0_dpf
+   do ii = 1, num_func
+      do jj = 1, num_func
+         if (abs(z(ii,jj)) .gt. abs(largestZ)) then
+            largestZ = z(ii,jj)
+         end if
+      end do
+   end do
+   do ii = 1, num_func
+      do jj = 1, num_func
+         if ((abs(z(ii,jj)) .lt. 1E-10*abs(largestZ)) .and. (abs(z(ii,jj)) .gt. 0.0_dpf)) then
+            z(ii,jj) = 0.0_dpf
+         end if
+      end do
+   end do
+   !Renormalise coefficients so norm is 1
+   do ii = 1, num_func
+      z(:,ii) = z(:,ii)/sum(z(:,ii)**2)
+   end do
+   !Fix CI coefficient sign issue
+   do ii = 1, num_func
+      if (sum(z(:,ii)) .lt. 0.0_dpf) then
+         z(:,ii) = -z(:,ii)
+      end if
+   end do
 
    deallocate(realH,realB)
 
@@ -400,11 +411,11 @@ program H3Plus
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-				         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
+	 cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
          Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-				 2*indata%R(ii)*indata%R(jj)*cosij)
-	       !Account for degenerate case where nuclei coincide
+	       2*indata%R(ii)*indata%R(jj)*cosij)
+	  !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
             w(:) = w(:) + dble(indata%charge(ii)*indata%charge(jj))/Rij
          end if
@@ -412,53 +423,58 @@ program H3Plus
    end do
    print*, "NUCLEAR INTERACTION CALCULATED"
 
-   open(80,file="energies.txt") 
-   do ii = 1, num_func
-      !print*, ii, w(ii)
-      write(80,*) ii, w(ii)
-   end do
-   close(80)
-
-   !!Need to divide by r and multiply by Ylm or Xlm to get full 3D wave function
-   !print*, "CALCULATED WAVE FUNCTIONS"
-   !allocate(wf(nr,num_func))
-   !wf(:,:) = 0.0_dpf
-   !do ii = 1, num_func
-   ! 	do jj=1, num_func
-	 !      if (abs(z(ii,jj)) .lt. 1E-20 ) then
-	 !         z(ii,jj) = 0.0_dpf
-	 !      end if
-   !      kk = sturm_ind_list(jj)
-   !      !MODIFY TO BE A FUNCTION OF (r,theta,phi)
-
-	 !      !Basis function set to zero outside of range of r values indexed by i1, i2
-	 !      i1 = basis%b(kk)%minf
-	 !      i2 = basis%b(kk)%maxf
-   !            
-   ! 	   wf(i1:i2,ii) = wf(i1:i2,ii) +  z(jj,ii)*basis%b(kk)%f(i1:i2)!*YLM
-   ! 	end do
-   !end do
-   !print*, "WAVE FUNCTIONS CALCULATED"
-
    !Create basis of one-electron states, store in state_basis data type
-	 call new_basis_st(oneestatebasis,num_func, .false. , 0)
-	 do ii =1, oneestatebasis%Nmax
-			inum = ii        !Index of the state for given symmetry
-			ncm = num_func   !Number of CI coefficients in expansion
-			allocate(no1(ncm), no2(ncm), mo1(ncm), mo2(ncm), phase(ncm))
-			!no1, mo1 store superindex ii and magnetic number m of basis funcs
-			!used in expansion of the state.
-			!Useful if we use only a subset of the full basis for symmetry reasons.
-			do jj =1, num_func
-			   no1(jj)=jj
-				 mo1(jj)=m_list(jj)
-			end do
-			no2(:)=no1(:)
-			mo2(:)=mo1(:)
-			phase(:)=1.0_dpf   !Phase of CI coefficients           
-	    call construct_st(oneestatebasis%b(ii),.false.,0.0_dpf,0,0.5_dpf,w(ii),inum,num_func,z(:,ii),no1,mo1,no2,mo2,phase)
-			deallocate(no1,no2,mo1,mo2,phase)
-	 end do
+   call new_basis_st(oneestatebasis,num_func, .false. , 0)
+   do ii =1, oneestatebasis%Nmax
+      inum = ii        !Index of the state for given symmetry
+      ncm = num_func   !Number of CI coefficients in expansion
+      allocate(no1(ncm), no2(ncm), mo1(ncm), mo2(ncm), phase(ncm))
+      !no1, mo1 store superindex ii and magnetic number m of basis funcs
+      !used in expansion of the state.
+      !Useful if we use only a subset of the full basis for symmetry reasons.
+      do jj =1, num_func
+         no1(jj)=jj
+         mo1(jj)=m_list(jj)
+      end do
+      no2(:)=no1(:)
+      mo2(:)=mo1(:)
+      phase(:)=1.0_dpf   !Phase of CI coefficients           
+      call construct_st(oneestatebasis%b(ii),.false.,0.0_dpf,0,0.5_dpf,w(ii),inum,num_func,z(:,ii),no1,mo1,no2,mo2,phase)
+      deallocate(no1,no2,mo1,mo2,phase)
+   end do
+
+   if((.not. (sum(indata%R(:)) .gt. 0.0_dpf)) .and. (writeWaveFunc)) then
+      write(filename,'(A13,I0,A4)') 'oneeradfuncN=', num_func, ".txt"
+      filename=TRIM(filename)
+      open(77,file=filename) 
+      write(filename,'(A8,I0,A4)') 'oneeCIN=', num_func, ".txt"
+      filename=TRIM(filename)
+      open(80,file=filename)
+
+      write(77,*) "One electron ground state radial wave function, hydrogen like case"
+      write(77,*) "r (a.u)   psi(r)"
+
+      print*, "NUMFUNC: ", num_func
+      allocate(func(grid%nr))
+      func(:) = 0.0_dpf
+      do ii = 1, num_func
+         i1 = basis%b(ii)%minf
+         i2 = basis%b(ii)%maxf
+         func(i1:i2) = func(i1:i2) + z(ii,1)*basis%b(ii)%f(i1:i2)
+      end do
+
+      do ii = 1, grid%nr
+         write(77,*) grid%gridr(ii), func(ii)
+      end do
+
+      do ii = 1, num_func
+         write(80,*), ii, z(ii,1)
+      end do
+
+      deallocate(func)
+      close(77)
+      close(80)
+   end if
 
    !Number of energies calculated will be equal to the size of the basis used.
    !Allocate array to store energy of each state
@@ -471,32 +487,33 @@ program H3Plus
 
    deallocate(k_list, l_list, m_list)
    deallocate(H,B,V,KMat)
-	 deallocate(use_list)
-   deallocate(w,z,wf)
-	 if (indata%isoscop .eq. 1) then
-				 if (indata%conroybasis .eq. 1) then
-				    deallocate(KMatConroy)
-				 end if
-	 end if
+   deallocate(use_list)
+   deallocate(w,z)    !,wf)
+   if (indata%isoscop .eq. 1) then
+       if (indata%conroybasis .eq. 1) then
+          deallocate(KMatConroy)
+       end if
+   end if
 
-   print*, "SORT ENERGIES"
-   !Sort array of energies from lowest to highest, use bubble sort algorithm 
-   !for simplicity
-   sorted = .false.
-   do while( .not. sorted)
-      sorted = .true.
-      do ii = 1, nstates-1
-         E1 = energies(ii)
-         E2 = energies(ii+1)
-         
-         if (E2 < E1) then
-            sorted = .false.
-            temp = energies(ii)
-            energies(ii) = energies(ii+1)
-            energies(ii+1) = temp
-         end if
-      end do
-   end do
+   !If structure is done correctly, dsgy will give energies in order anyway
+   !print*, "SORT ENERGIES"
+   !!Sort array of energies from lowest to highest, use bubble sort algorithm 
+   !!for simplicity
+   !sorted = .false.
+   !do while( .not. sorted)
+   !   sorted = .true.
+   !   do ii = 1, nstates-1
+   !      E1 = energies(ii)
+   !      E2 = energies(ii+1)
+   !      
+   !      if (E2 < E1) then
+   !         sorted = .false.
+   !         temp = energies(ii)
+   !         energies(ii) = energies(ii+1)
+   !         energies(ii+1) = temp
+   !      end if
+   !   end do
+   !end do
 
    print*, "WRITE ENERGIES TO FILE"
    !Write energes of states to file
@@ -511,27 +528,27 @@ program H3Plus
 
 
 
-	 !---------------------Perform 2e Structure --------------------!
-  	!one_electron_func.f90: fills oneestates type before structure12
-  	!is called, specifically does so in construct_1el_basis_nr
-  	!and Hybrid_MSCbasis functions, which also set e1me and ovlpst
-  	!arrays
-  	!Hybrid_MSCbasis actually already loops over m when copying
-  	!laguerre functions to TargetStates
-  	!rearrange(): called in construct_1el_basis_nr, I've already
-  	!modified rearrange, might need to check its usage still works
-  	!when called in construct_1el_basis_nr
+   !---------------------Perform 2e Structure --------------------!
+   !one_electron_func.f90: fills oneestates type before structure12
+   !is called, specifically does so in construct_1el_basis_nr
+   !and Hybrid_MSCbasis functions, which also set e1me and ovlpst
+   !arrays
+   !Hybrid_MSCbasis actually already loops over m when copying
+   !laguerre functions to TargetStates
+   !rearrange(): called in construct_1el_basis_nr, I've already
+   !modified rearrange, might need to check its usage still works
+   !when called in construct_1el_basis_nr
   
-	 !Call rearrange to represent 1e states in a one-electron basis with well defined (lm)
-	 call rearrange(basis,data_in%latop,oneestatebasis,.false.)
-
-	 !Modified version of subroutine in one_electron_func.f90, constructs basis for use in 2e configs
-	 !call construct_1el_basis_nr_group(  )
+   !Call rearrange to represent 1e states in a one-electron basis with well defined (lm)
+   call rearrange(basis,data_in%latop,oneestatebasis,.false.)
+  
+   !Modified version of subroutine in one_electron_func.f90, constructs basis for use in 2e configs
+   !call construct_1el_basis_nr_group(  )
 
    !Custom version of the structure12 subroutine tailored to non-linear molecules
-	 call structure12group(basis,oneestatebasis,basis%n,indata)
+   call structure12group(basis,oneestatebasis,basis%n,indata)
 
-	 !--------------------End Two Electron Structure------------------!
+   !--------------------End Two Electron Structure------------------!
 
    deallocate(energies)
    call destruct_gridr(grid)
