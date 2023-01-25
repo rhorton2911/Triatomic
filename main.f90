@@ -46,12 +46,13 @@ program H3Plus
    complex(dpf), dimension(:,:,:), allocatable:: VRadMatEl
    !real(dpf), dimension(:,:), allocatable:: VReal
    !complex(dpf), dimension(:,:), allocatable:: VTemp
-   real(dpf), dimension(:,:), allocatable:: realH, realB, realK
+   real(dpf), dimension(:,:), allocatable:: realH, realB, realK, BMat
    real(dpf), dimension(:,:,:), allocatable:: angular
    integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list 
    real(dpf), dimension(:), allocatable::  energies
    integer:: num_func, l, m, k, rad_func
    integer:: n
+   real(dpf):: norm
    integer:: num_lambda
    integer:: lblocksize
    integer:: nstates, ier
@@ -126,7 +127,6 @@ program H3Plus
          	 write(70,*) grid%gridr(ii), (basis%b(jj)%f(ii), jj=1, 5)
          end do
          close(70)
-      	 stop
       else
          call construct(basis, data_in)
          !print*, indata%R(1), indata%R(2), indata%R(3)
@@ -163,7 +163,7 @@ program H3Plus
    end do
    if (num_func .eq. 0) then
       print*, "ERROR: num_func=0: no basis functions. Stopping"
-      stop
+      error stop
    end if
 
    !Defined arrays for test case
@@ -180,32 +180,32 @@ program H3Plus
    kk = 0
    do l = data_in%labot, data_in%latop
       do m = -l, l
-	       jj  = kk 
+         jj  = kk 
          do k = 1, data_in%nps(l)
             ii = ii + 1
             k_list(ii) = k
             l_list(ii) = l
-	          m_list(ii) = m
-	          !print*, "L,M,k,ii: ", l, m, k, ii
+	    m_list(ii) = m
+	    !print*, "L,M,k,ii: ", l, m, k, ii
 
-	          !Indexing changed for non-diatomics, indices for basis now include l, k AND m. For a given l, the same radial basis
-	          !functions phi_{kl} are used for each value of m from -l to l. Introduce an array to track which radial basis 
-	          !function belongs to which index.
-	          jj = jj + 1
+	    !Indexing changed for non-diatomics, indices for basis now include l, k AND m. For a given l, the same radial basis
+	    !functions phi_{kl} are used for each value of m from -l to l. Introduce an array to track which radial basis 
+	    !function belongs to which index.
+	    jj = jj + 1
 
-	          found = .false.
-	          n = 1
-	          do while (.not. found)
-               !print*, basis%b(n)%l, basis%b(n)%m, basis%b(n)%k, "L,K: ", l, k
-	             if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
-		              found = .true.
-	             else
-		              n = n +1
-	             end if
-	          end do
+	    found = .false.
+	    n = 1
+	    do while (.not. found)
+            !print*, basis%b(n)%l, basis%b(n)%m, basis%b(n)%k, "L,K: ", l, k
+	       if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
+                  found = .true.
+	       else
+                  n = n +1
+	       end if
+	    end do
 
-	          sturm_ind_list(ii) = n
-	          !print*, jj
+	    sturm_ind_list(ii) = n
+	    !print*, jj
          end do
       end do
       !The radial part of the basis is identical for any given (l,k) pair, regardless of m
@@ -221,65 +221,65 @@ program H3Plus
    V(:,:) = 0.0_dpf
 
    allocate(realB(basis%n,basis%n))
-	 realB(:,:) = basis%ortint(:,:)
+   realB(:,:) = basis%ortint(:,:)
    call getKMatM(realK,realB,basis)
-	 allocate(B(num_func,num_func), KMat(num_func,num_func))
-	 B(:,:) = realB(:,:)
-	 KMat(:,:) = realK(:,:)
-	 deallocate(realB, realK)
+   allocate(B(num_func,num_func), KMat(num_func,num_func))
+   B(:,:) = realB(:,:)
+   KMat(:,:) = realK(:,:)
+   deallocate(realB, realK)
 
    allocate(use_list(num_func))
    use_list(:) = .true.
    if ((indata%isobasisop .eq. 1) .and. (indata%isoscop .eq. 1)) then
-			use_list(:) = .false.
-			numfound = 0
-			do ii = 1, 20
-				 print*, testk(ii), testl(ii), testm(ii)
-			   do jj = 1, num_func
-				    if (((k_list(jj) .eq. testk(ii)) .and. &
-							 (l_list(jj) .eq. testl(ii)))  .and. &
-							 (m_list(jj) .eq. testm(ii)))  then
+      use_list(:) = .false.
+      numfound = 0
+      do ii = 1, 20
+         print*, testk(ii), testl(ii), testm(ii)
+         do jj = 1, num_func
+      	    if (((k_list(jj) .eq. testk(ii)) .and. &
+      	    (l_list(jj) .eq. testl(ii)))  .and. &
+            (m_list(jj) .eq. testm(ii)))  then
+      
+      	       use_list(jj) = .true.
+      	       numfound = numfound + 1
+            end if
+      	 end do
+      end do
+      if (numfound .ne. 20) then
+      	 print*, "ERROR: basis functions with required symmetries for &
+      	 &test case not found, require at least lmax=3 and N=5. &
+      	 & Stopping."
+      	 error stop
+      end if
 
-							 use_list(jj) = .true.
-							 numfound = numfound + 1
-						end if
-				 end do
-			end do
-			if (numfound .ne. 20) then
-				 print*, "ERROR: basis functions with required symmetries for &
-				 &test case not found, require at least lmax=3 and N=5. &
-				 & Stopping."
-				 stop
-			end if
-
-			!Produce K and B matrix for restricted basis, just copy over the
-			!right elements from the full K and B matrices
-	    allocate(tempK(num_func,num_func), tempB(num_func, num_func))
-	    tempK(:,:) = KMat(:,:)
-			tempB(:,:) = B(:,:)
-	    deallocate(KMat, B)
-	    allocate(KMat(20,20), B(20,20))
-			u1 = 1
-			do ii = 1, num_func
-				 u2 = 1
-				 do jj= 1, num_func
-				    if (use_list(ii) .and. use_list(jj)) then
-							 KMat(u1,u2) = tempK(ii,jj)
-							 B(u1,u2) = tempB(ii,jj)
-							 u2 = u2 + 1
-						end if
-				 end do
-				 if (use_list(ii)) then
-				    u1 = u1 + 1
-				 end if
-			end do
-			deallocate(tempK, tempB, H, V)	
+      !Produce K and B matrix for restricted basis, just copy over the
+      !right elements from the full K and B matrices
+      allocate(tempK(num_func,num_func), tempB(num_func, num_func))
+      tempK(:,:) = KMat(:,:)
+      tempB(:,:) = B(:,:)
+      deallocate(KMat, B)
+      allocate(KMat(20,20), B(20,20))
+      u1 = 1
+      do ii = 1, num_func
+         u2 = 1
+         do jj= 1, num_func
+            if (use_list(ii) .and. use_list(jj)) then
+               KMat(u1,u2) = tempK(ii,jj)
+               B(u1,u2) = tempB(ii,jj)
+               u2 = u2 + 1
+            end if
+         end do
+         if (use_list(ii)) then
+            u1 = u1 + 1
+         end if
+      end do
+      deallocate(tempK, tempB, H, V)	
 				    
-			num_func = 20
-			allocate(H(num_func,num_func), V(num_func,num_func))
-			H(:,:) = 0.0_dpf
-			V(:,:) = 0.0_dpf
-	 end if
+      num_func = 20
+      allocate(H(num_func,num_func), V(num_func,num_func))
+      H(:,:) = 0.0_dpf
+      V(:,:) = 0.0_dpf
+   end if
  
    print*, "GET ANGULAR MATRIX ELEMENTS"
    !!Precalculate angular integrals appearing in V-matrix elements
@@ -304,6 +304,50 @@ program H3Plus
    realH(:,:) = real(H(:,:))
    realB(:,:) = real(B(:,:)) 
 
+   !Nuclear-nuclear matrix elements, being multiples of the overlap matrix, do not affect electronic wave functions.
+   print*, "ADD NUCLEAR INTERACTION ENERGY"
+   do ii=1, 3
+      do jj = ii+1, 3
+         !Use law of cosines to compute distance between nuclei
+	 cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
+         Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
+	       2*indata%R(ii)*indata%R(jj)*cosij)
+	  !Account for degenerate case where nuclei coincide
+         if (Rij .gt. 0.0_dpf) then
+            realH(:,:) = realH(:,:) + realB(:,:)*dble(indata%charge(ii)*indata%charge(jj))/Rij
+         end if
+      end do
+   end do
+   print*, "NUCLEAR INTERACTION CALCULATED"
+
+   !print*, "HMatrix"
+   !do ii = 1, num_func
+   !   print*, basis%b(ii)%k, basis%b(ii)%l, basis%b(ii)%m
+   !end do
+   !do ii = 1, num_func
+   !   write(*,'(10000(ES12.5,X))'), realH(ii,:)
+   !end do
+
+   !do ii = 1, num_func
+   !   do jj = ii, num_func
+   !      if (abs(realH(ii,jj)) .gt. 0.0_dpf) then
+   !         print*, realH(ii,jj), "l1,m1 ", basis%b(ii)%l, basis%b(ii)%m, "l2,m2 ", basis%b(jj)%l, basis%b(jj)%m
+   !      end if
+   !   end do
+   !end do
+
+   !do ii = 1, num_func
+   !   do jj = ii, num_func
+   !      if (abs(realH(ii,jj)) .gt. 0.0_dpf) then
+   !         if (basis%b(ii)%m .ne. basis%b(jj)%m) then
+   !            print*, "NON-ZERO matrix element"
+   !            print*, realH(ii,jj), "l1,m1 ", basis%b(ii)%l, basis%b(ii)%m, "l2,m2 ", basis%b(jj)%l, basis%b(jj)%m
+   !         end if
+   !      end if
+   !   end do
+   !end do
+
    if (indata%harmop .eq. 0) then
       !Molecule has C_s symmetry if:
       !(1)  R_1 != R_2
@@ -314,7 +358,7 @@ program H3Plus
          (abs(abs(indata%theta(2)) - abs(indata%theta(3))) .gt. 0.0_dpf)) .or. &
          (abs(indata%theta(1)) + abs(indata%phi(1))) .gt. 0.0_dpf) then
          print*, "WARNING: complex spherical harmonics not yet implemented for C_s geometries. Stopping."	
-         stop
+         error stop
       end if
    end if
 
@@ -324,24 +368,24 @@ program H3Plus
          if (isnan(realH(ii,jj))) then
             print*, "realH: ", ii,jj
             print*, realH(ii,jj)
-            stop
+            error stop
          end if
          if (isnan(realB(ii,jj))) then
             print*, "realB: ", ii,jj
-            stop
+            error stop
          end if
          if (.not. ieee_is_finite(realH(ii,jj))) then
             print*, "realH infinite: ", ii,jj
             print*, H(ii,jj)
             print*, realH(ii,jj)
-            stop
+            error stop
          end if
          if (.not. ieee_is_finite(realB(ii,jj))) then
             print*, "realB infinite: ", ii,jj
-            stop
+            error stop
          end if
    
-         if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .lt. 0.0_dpf)) then
+         if ((abs(realH(ii,jj)) .gt. largest) .and. (abs(realH(ii,jj)) .gt. 0.0_dpf)) then
             largest = realH(ii,jj)
          end if
       end do
@@ -356,6 +400,9 @@ program H3Plus
    print*, "Removed small matrix elements"
 
    allocate(w(num_func),z(num_func,num_func))
+
+   allocate(BMat(num_func,num_func))
+   BMat(:,:) = realB(:,:)
 
    !Diagonalise one-electron hamiltonian
    if (uselapack .eqv. .false.) then
@@ -372,8 +419,22 @@ program H3Plus
       allocate(work(lwork))
       call DSYGV(1, 'V', 'U', num_func, realH, lda, realB, ldb, w, work, lwork, info) 
       z(:,:) = realH(:,:) !On exit, dsygv overwrites matrix with eigenvectors
+      print*, "1e diagonalisation, info= ",  info
+      if (info .ne. 0) then
+         print*, "ERROR in DSYGV, info !=0"
+         error stop
+      end if
+
       deallocate(work)
    end if
+
+   !do ii = 1, num_func
+   !   print*, "State number: ", ii
+   !   do jj = 1, num_func
+   !      print*, basis%b(jj)%k, basis%b(jj)%l, basis%b(jj)%m, z(jj,ii)
+   !   end do
+   !  print*, "   "
+   !end do
 
    !Find largest expansion coefficient, ignore those below a certain
    !magnitude for stability/to get rid of underflow 
@@ -392,10 +453,18 @@ program H3Plus
          end if
       end do
    end do
+
    !Renormalise coefficients so norm is 1
-   do ii = 1, num_func
-      z(:,ii) = z(:,ii)/sum(z(:,ii)**2)
+   do n = 1, num_func         
+      norm = 0.0_dpf
+      do ii=1, num_func
+         do jj = 1, num_func
+            norm = norm + z(ii,n)*z(jj,n)*BMat(ii,jj)
+         end do
+      end do
+      z(:,n) = z(:,n)/sqrt(norm)
    end do
+
    !Fix CI coefficient sign issue
    do ii = 1, num_func
       if (sum(z(:,ii)) .lt. 0.0_dpf) then
@@ -403,25 +472,7 @@ program H3Plus
       end if
    end do
 
-   deallocate(realH,realB)
-
-   !Include effect of nucleus-nucleus interaction term by simply adding zi*zj/R_ij to energies at the end.
-   !Nuclear-nuclear matrix elements, being multiples of the overlap matrix, do not affect electronic wave functions.
-   print*, "ADD NUCLEAR INTERACTION ENERGY"
-   do ii=1, 3
-      do jj = ii+1, 3
-         !Use law of cosines to compute distance between nuclei
-	 cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
-         Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-	       2*indata%R(ii)*indata%R(jj)*cosij)
-	  !Account for degenerate case where nuclei coincide
-         if (Rij .gt. 0.0_dpf) then
-            w(:) = w(:) + dble(indata%charge(ii)*indata%charge(jj))/Rij
-         end if
-      end do
-   end do
-   print*, "NUCLEAR INTERACTION CALCULATED"
+   deallocate(realH,realB,BMat)
 
    !Create basis of one-electron states, store in state_basis data type
    call new_basis_st(oneestatebasis,num_func, .false. , 0)
@@ -454,7 +505,6 @@ program H3Plus
       write(77,*) "One electron ground state radial wave function, hydrogen like case"
       write(77,*) "r (a.u)   psi(r)"
 
-      print*, "NUMFUNC: ", num_func
       allocate(func(grid%nr))
       func(:) = 0.0_dpf
       do ii = 1, num_func

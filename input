@@ -1,5 +1,5 @@
-6     !lambda max
-1     !Use real spherical harmonics (1=yes,0=no)
+8     !lambda max
+0     !Use real spherical harmonics (1=yes,0=no)
 !!!!!!!!!!!!!!!Nuclear coordinates!!!!!!!!!!!!
 1     !z1 (charge of nucleus 1)
 1     !z2 (charge of nucleus 2)
@@ -11,7 +11,7 @@
 180.0     !theta2 (degrees)
 180.0     !theta3 (degrees)
 0.0       !phi1 (degrees)
-0.0      !phi2 (degrees)
+90.0      !phi2 (degrees)
 -90.0     !phi3 (degrees)
 !!!!!!!!!!!Iscosceles Testing Mode!!!!!!!!!!!!!!
 0         !Run test case (1=yes, 0 =normal run)

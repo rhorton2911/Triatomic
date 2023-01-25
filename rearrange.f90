@@ -75,11 +75,9 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
      OneState => TargetStates%b(nst)
 
      ncm = get_nam(OneState) ! ncm = nam which is the size of the array na(:), which is also the number of CI coeff
-     !print*, "STATE: ", nst
      do nc = 1,ncm ! go through every Lagueere basis (psi_kl(r)X_lm(theta,phi)) of that target state
 !!$---------------------------------------
         rCI = get_CI(OneState, nc)
-        !print*, "CONFIG: ", bst_nr%b(nc)%l, bst_nr%b(nc)%m, bst_nr%b(nc)%k, rCI
         if(rCI .eq. 0.0) cycle
 !!$----------------------------------------
         n = get_na(OneState,nc,1) ! which is na(nc), where nc = 1,2,...ncm
@@ -103,7 +101,6 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
            av_l_newf(nst,ictr) = l                         
            av_n_newf(nst,ictr) = tot_numf     
 	   av_m_newf(nst,ictr) = m
-           !print*, "NST, l, m: ", nst, l, m
         endif
 
      end do ! end nc loop
@@ -176,12 +173,13 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
         else
         !   call init_function(bst_rearr%b(nspm_loc), icl,licl,mst,alpha, minf_all,maxf_all,arrfnew,arrgnew)
            print*, "ERROR: spheroidal coordinates not yet implemented for H3+ mode. Stopping."
-           stop
+           error stop
         end if
 
      end do   
   end do ! nst
   
+
   if(nspm_loc .ne. tot_numf) then
      if (myid == 0) print*, '*** rearrange.f90'
      if (myid == 0) print*, '*** nspm_loc .ne. tot_numf:', nspm_loc, tot_numf 
@@ -258,7 +256,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,lag_ham1el_m)
                        if ( use_lag_ham1el ) then
                           !sum_two = sum_two + rCI_i * rCI_f * lag_ham1el_m(n_i,n_f,mstf) 
                           print*, "ERROR: ham1el_m option not yet implemented for H3+ calculation. Stopping"
-                          stop
+                          error stop
                        else
                           sum_two = sum_two + rCI_i * rCI_f * bst_nr%ham1el(n_i,n_f)
                        end if

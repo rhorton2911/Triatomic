@@ -919,7 +919,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     type(basis_sturmian_nr)::basis   !Sturmian basis used for 1e diagonalisation
     type(basis_state):: oneestates   !One electron spatial molecular orbitals
     type(smallinput):: indata
-    integer:: ii, jj, counter
+    integer:: ii, jj, counter, kk
     integer:: num_states !Size of one electron basis
     logical:: hlike
     integer:: maxstates
@@ -956,8 +956,10 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     real*8, external :: DLAMCH
     !File IO variables
     character(len=100):: line
-  
-
+    !For checking values
+    integer:: bfind 
+    real*8:: tmpCI2
+    type(sturmian_nr), pointer:: p2 
 			
     !do ii = 1, oneestates%Nmax
     !   print*, oneestates%b(ii)%energy
@@ -1045,9 +1047,9 @@ subroutine structure12group(basis,oneestates,num_states,indata)
              b(:,:) = 0.0_dpf
              !do ii = 1, oneestates%Nmax
              !   nsp1 = get_nam(oneestates%b(ii))
-             !      print*, oneestates%b(ii)%energy, nsp1
-             !      do jj = 1, nsp1
-             ! 	   val = get_na(oneestates%b(ii),jj,1)
+             !   print*, oneestates%b(ii)%energy, nsp1
+             !   do jj = 1, nsp1
+             ! 	    val = get_na(oneestates%b(ii),jj,1)
              !      print*, val, basis%b(val)%l, basis%b(val)%m
              !   end do
              !end do
@@ -1059,14 +1061,11 @@ subroutine structure12group(basis,oneestates,num_states,indata)
                 nc = nclist(jj)
                 ncp = ncplist(jj)
 
-                
                 !Indices of 1e molcule orbitals used in 2e configurations |n> and |np> for a given spin
                 nsp1 = no1(nc) 
                 nsp2 = no2(nc) 
                 nsp1p = no1(ncp) 
                 nsp2p = no2(ncp) 
-
-                !print*, "nsp1/2: ", nsp1, nsp2, "nsp1/1p: ", nsp1p, nsp2p
 
                 repnsp1 = repo1(nc) 
                 repnsp2 = repo2(nc) 
@@ -1082,6 +1081,19 @@ subroutine structure12group(basis,oneestates,num_states,indata)
                 b(ncp, nc) = belement
                 !print*, nc, ncp, Helement, belement
              end do
+
+             if ((is .eq. 0) .and. (numcon .lt. 5)) then
+                open(90,file='HMatReese')
+                write(90,*) "HMat"
+                do kk = 1, numcon
+                   write(90,*) H(kk,:)
+                end do
+                write(90,*) "bmat"
+                do kk = 1, numcon
+                   write(90,*) b(kk,:)
+                end do
+                close(90)
+             end if 
 
 
              !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
@@ -1141,13 +1153,13 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     call sort_by_energy_basis_st(TargetStates2el)
 
     open(81,file='2eenergies.txt')
-    write(81,*) "Two Electron States, Target Name: H3+"
-    write(81,*) "Nuclear Geometry:                   (R1, R2, R3)= ", indata%R(1), indata%R(2), indata%R(3)
-    write(81,*) "                        (theta1, theta2, theta3)= ", indata%theta(1), indata%theta(2), indata%theta(3)
-    write(81,*) "                              (phi1, phi2, phi3)= ", indata%phi(1), indata%phi(2), indata%phi(3)
-    write(81,*) "N     Label       S     E(a.u)"
+    write(81,*) "  Two Electron States, Target Name: H3+"
+    write(81,*) "  Nuclear Geometry:                   (R1, R2, R3)= ", indata%R(1), indata%R(2), indata%R(3)
+    write(81,*) "                          (theta1, theta2, theta3)= ", indata%theta(1), indata%theta(2), indata%theta(3)
+    write(81,*) "                                (phi1, phi2, phi3)= ", indata%phi(1), indata%phi(2), indata%phi(3)
+    write(81,*) "  N     Label       S     E(a.u)"
     do ii = 1, TargetStates2el%Nstates
-       write(line,"(I6,6X,A6,5X,I1,3X,f18.10)") ii, TargetStates2el%b(ii)%label, int(TargetStates2el%b(ii)%spin), TargetStates2el%b(ii)%energy
+       write(line,"(2X,I6,6X,A6,5X,I1,3X,f18.10)") ii, TargetStates2el%b(ii)%label, int(TargetStates2el%b(ii)%spin), TargetStates2el%b(ii)%energy
        write(81,*) ADJUSTL(TRIM(line))
     end do
 
@@ -2672,6 +2684,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
      nsp1 = get_na(TargetStates1el%b(nst1),i1,1)
      tmpCI1 = get_CI(TargetStates1el%b(nst1),i1)
      p1 => bst%b(nsp1)
+
      do i2=1,i2max
         nsp2 = get_na(TargetStates1el%b(nst2),i2,1)
         tmpCI2 = get_CI(TargetStates1el%b(nst2),i2)
@@ -2704,7 +2717,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 
   twoelME = ttt
 
-  !                 if (myid==0) print*, 'result', result
+  ! if (myid==0) print*, 'result', result
   if((nst1 .eq. nst2) .and. (nst1p .ne. nst2p)) then
      ! <aa | ..| b1 b2>
      twoelme  =  sqrt(2d0) * twoelme 
@@ -2781,7 +2794,9 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 !     tmp = - Z1*Z2/Rd  * resultb
 !  endif
 
-  resultH = oneelme + tmp + twoelme
+  !H3++ code includes nuclear interaction, need to compensate 
+  !for 2*sum_ij z_i*z_j/R_ij introduced by using two sets of 1e states, subtract tmp
+  resultH = oneelme - tmp + twoelme
 
   return
 end subroutine H12me_st_group
@@ -2888,7 +2903,7 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
 	qmax = lam
      else
         print*, "ERROR: neither real nor complex harmonics selected, stopping. V12me_group"
-        stop
+        error stop
      end if
 
 	

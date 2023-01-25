@@ -653,7 +653,7 @@ module basismodule
 		        lambdaind = 1
 		        do lambda = 0, indata%lambdamax
 		           do q = -lambda, lambda
-	                f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
+	                            f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
 			            VRadMatEl(lambdaind,n,m) = sum(f(i1:i2)*ingrid%weight(i1:i2))
 			            lambdaind = lambdaind + 1
 		           end do
