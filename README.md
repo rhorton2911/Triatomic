@@ -4,6 +4,6 @@ generalise the molecule convergent close-coupling (MCCC) method to non-linear mo
 first step in such a project is to develop an MCCC code for a triatomic molecule, the simplest 
 of which is H3+.
 
-At present, this repository contains a structure code for H3++, a single electron system. Once
-this code has been completed and thoroughly tested, it will be generalised to perform a full CI
-calculation for H3+, using the H3++ single electron states generated as a basis.
+At present, this repository contains a structure code for both H3++, a single electron system and its two electron
+generalisation H3+. The two electron structure code uses the H3++ single electron states as a basis for a configuration interaction (CI)
+calculation, at present using the frozen core (FC) approximation.
