@@ -309,11 +309,11 @@ program H3Plus
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	 cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
+	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+	               sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
          Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
 	       2*indata%R(ii)*indata%R(jj)*cosij)
-	  !Account for degenerate case where nuclei coincide
+	       !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
             realH(:,:) = realH(:,:) + realB(:,:)*dble(indata%charge(ii)*indata%charge(jj))/Rij
          end if
@@ -438,6 +438,7 @@ program H3Plus
 
    !Find largest expansion coefficient, ignore those below a certain
    !magnitude for stability/to get rid of underflow 
+	 print*, "REMOVING SMALL CI COEFFICIENTS"
    largestZ = 0.0_dpf
    do ii = 1, num_func
       do jj = 1, num_func
@@ -454,7 +455,12 @@ program H3Plus
       end do
    end do
 
+	 print*, "RENORMALISING CI COEFFICIENTS"
    !Renormalise coefficients so norm is 1
+	 !Added openMP to speed this up for large basis sizes
+   !$OMP PARALLEL DO DEFAULT(SHARED) & 
+   !$OMP PRIVATE(ii, jj, norm) &
+   !$OMP SCHEDULE(DYNAMIC)
    do n = 1, num_func         
       norm = 0.0_dpf
       do ii=1, num_func
@@ -464,7 +470,9 @@ program H3Plus
       end do
       z(:,n) = z(:,n)/sqrt(norm)
    end do
+	 !$OMP END PARALLEL DO
 
+	 print*, "FIXING SIGN ISSUE"
    !Fix CI coefficient sign issue
    do ii = 1, num_func
       if (sum(z(:,ii)) .lt. 0.0_dpf) then
@@ -545,26 +553,6 @@ program H3Plus
        end if
    end if
 
-   !If structure is done correctly, dsgy will give energies in order anyway
-   !print*, "SORT ENERGIES"
-   !!Sort array of energies from lowest to highest, use bubble sort algorithm 
-   !!for simplicity
-   !sorted = .false.
-   !do while( .not. sorted)
-   !   sorted = .true.
-   !   do ii = 1, nstates-1
-   !      E1 = energies(ii)
-   !      E2 = energies(ii+1)
-   !      
-   !      if (E2 < E1) then
-   !         sorted = .false.
-   !         temp = energies(ii)
-   !         energies(ii) = energies(ii+1)
-   !         energies(ii+1) = temp
-   !      end if
-   !   end do
-   !end do
-
    print*, "WRITE ENERGIES TO FILE"
    !Write energes of states to file
    open(80,file="1eenergies.txt")
@@ -575,8 +563,6 @@ program H3Plus
       write(80,*) ii, energies(ii)
    end do
    close(80)
-
-
 
    !---------------------Perform 2e Structure --------------------!
    !one_electron_func.f90: fills oneestates type before structure12

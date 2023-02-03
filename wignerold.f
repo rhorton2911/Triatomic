@@ -300,7 +300,7 @@ C
       K6=INTPTF(ZZ)
 C
   100 IF(JJJ.NE.0) GO TO 500
-      !JJJ=1
+      JJJ=1
       IERCT=0
       H(1)=1.0D0
       J(1)=0
@@ -313,7 +313,7 @@ C
       H(I)=0.01D0*H(I)
       J(I)=J(I)+2
       GO TO 200
-  400 JJJ=1
+  400 CONTINUE
 C
   500 IF(KEY.LT.-5) GO TO 750
       IF(KEY.GE.3) GO TO 320

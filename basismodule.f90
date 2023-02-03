@@ -57,8 +57,8 @@ module basismodule
 			real(dpf), dimension(:), allocatable:: temp
 			integer:: counter
 			real(dpf):: angletemp !Temporary storage for angle in degrees
-	    !Used to set parameters in isosceles testing case
-	    real(dpf):: R1, R2, L, RN2, thetaN2
+	                !Used to set parameters in isosceles testing case
+	                real(dpf):: R1, R2, L, RN2, thetaN2
 
 			open(20,file="input")
 
@@ -94,16 +94,16 @@ module basismodule
 			indata%phi(3) = pinum*(angletemp/180.0_dpf)
 			read(20,*) 
 			read(20,*) indata%isoscop
-	    read(20,*) indata%hernandeztest
-	    read(20,*) indata%isobasisop
-	    read(20,*) indata%conroybasis
+	                read(20,*) indata%hernandeztest
+	                read(20,*) indata%isobasisop
+	                read(20,*) indata%conroybasis
 			read(20,*) indata%R1
 			read(20,*) indata%R2
 	    
-      if (indata%R1 .gt. 2.0_dpf*indata%R2) then
-				 print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
-				 stop
-	    end if
+                        if (indata%R1 .gt. 2.0_dpf*indata%R2) then
+		           print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
+		           stop
+	                end if
 
 !			allocate(temp(indata%Nalpha))
 !			temp(:) = 0.0_dpf
@@ -131,7 +131,7 @@ module basismodule
 
 			if (indata%isoscop .eq. 1) then
 			   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
-			   R1 = indata%R1
+			         R1 = indata%R1
 				 R2 = indata%R2
 				 if (indata%hernandeztest .eq. 1) then
 				    R1 = 3.50_dpf
@@ -145,7 +145,7 @@ module basismodule
 				 indata%R(2) = RN2
 				 indata%R(3) = RN2    !Symmetric case
 
-         thetaN2 = acos((RN2**2+(2.0_dpf*L/3.0_dpf)**2-R2**2)/(2.0_dpf*RN2*(2.0_dpf*L/3.0_dpf)))
+                                 thetaN2 = acos((RN2**2+(2.0_dpf*L/3.0_dpf)**2-R2**2)/(2.0_dpf*RN2*(2.0_dpf*L/3.0_dpf)))
 				 indata%theta(1) = 0.0_dpf
 				 indata%theta(2) = thetaN2  !acos gives angle in radians
 				 indata%theta(3) = thetaN2
@@ -155,9 +155,9 @@ module basismodule
 
 				 !Set up arrays storing indices of basis functions, hardcode
 				 !values from Conroy's paper.
-	       indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
-	       indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
-	       indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
+	                         indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
+	                         indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
+	                         indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
 				 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
 				 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
 				 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
@@ -579,12 +579,27 @@ module basismodule
 	    integer, dimension(:):: l_list, m_list
 	    integer:: lambdaind, lambda, q
 	    integer:: ii, jj
-	    real(dpf):: Yint
-	    integer:: li, mi, lj, mj
+            real(dpf):: overlap
+            
+	    integer:: li, mi, lj, mj, liPrev, miPrev, ljPrev, mjPrev, iiPrev, jjPrev
+            !legacy fortran common block variables used in wigner.f, need to make openmp private
+            !integer mmax
+            !parameter (mmax=501)
+            !real(dpf):: H
+            !integer:: J, IERR, IERCT
+            !COMMON / CNJSAVE / H(mmax), J(mmax)
+            !COMMON/ FGERCM /IERR,IERCT
+	    !!!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
+ 
+            liPrev = -1
+            ljPrev = -1
+            miPrev = -1
+            mjPrev = -1
+            iiPrev = -1
+            jjPrev = -1
 
             !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
-						!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q) &
-						!$OMP& SHARED(angular, num_func, indata, l_list, m_list,pinum)
+	    !!!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
             do ii = 1, num_func
 	             !print*, ii
                do jj = 1, num_func
@@ -595,24 +610,59 @@ module basismodule
                   lambdaind=1
                   do lambda = 0, indata%lambdamax
                      do q = -lambda, lambda
-                        if (indata%harmop .eq. 0) then
-                           angular(lambdaind,ii,jj) = sqrt(dble(2*lambda+1)/(4.0_dpf*pinum)) &
-                 	         *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
-                        else if (indata%harmop .eq. 1) then
-                 	   !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
-                           angular(lambdaind,ii,jj) = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+                        if (((liPrev .eq. li) .and. (miPrev .eq. mi)) .and. ((ljPrev .eq. lj) .and. (mjPrev .eq. mj))) then
+                           angular(lambdaind,ii,jj) = angular(lambdaind,iiPrev,jjPrev)
+                        else
+                           call callOverlap(overlap,dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj),indata%harmop)
+                           angular(lambdaind,ii,jj) = overlap
+                           !print*, li, mi, lambda, q, lj, mj
+                           !print*, angular(lambdaind,ii,jj)
                         end if
-
-                        !print*, li, mi, lambda, q, lj, mj
-                        !print*, angular(lambdaind,ii,jj)
+                        
                         lambdaind = lambdaind + 1 
                      end do
                   end do
+                  liPrev = li
+                  miPrev = mi
+                  ljPrev = lj
+                  mjPrev = mj
+                  iiPrev = ii
+                  jjPrev = jj
                end do
             end do
-						!$OMP END PARALLEL DO 
+	    !!!$OMP END PARALLEL DO 
 
 	 end subroutine getAngular
+
+
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         !Subroutine: callOverlap
+         !Purpose: subroutine that calls functions to compute the gaunt coefficients
+         !         of real/complex spherical harmonics
+         !Introduced to deal with openMp parallelisation not behaving well when 
+         !calling legacy functions in wigner.f which use common blocks.
+         !Moving the call to a separate subroutine fixes the problem for some reason.
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         subroutine callOverlap(overlap, li, mi, lambda, q, lj, mj, harmop)
+            use ieee_arithmetic
+            implicit none
+            real(dpf):: li, mi, lambda, q, lj, mj, overlap
+            integer:: harmop 
+	    real(dpf):: Yint
+
+            if (harmop .eq. 0) then
+               overlap = sqrt(dble(2*lambda+1)/(4.0_dpf*pinum)) &
+                     *Yint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+            else if (harmop .eq. 1) then
+               !Xint as written calculates overlap without sqrt(2lambda+1) factor, unlike Yint
+               overlap = Xint(dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj))
+               if (.not. ieee_is_finite(overlap)) then
+                  print*, "GAUNT COEFFICIENT INFINITE:", overlap
+                  error stop
+               end if
+            end if
+
+         end subroutine
 
 
 
@@ -693,29 +743,29 @@ module basismodule
 	    do ii=1, num_func
 	       !print*, ii
 	       do jj = 1, num_func
-		        !n = sturm_ind_list(ii)
-		        !m = sturm_ind_list(jj)
-						n = ii
-						m = jj
+		  !n = sturm_ind_list(ii)
+		  !m = sturm_ind_list(jj)
+		  n = ii
+		  m = jj
 
-						use1 = use_list(ii)
-						use2 = use_list(jj)
+		  use1 = use_list(ii)
+		  use2 = use_list(jj)
 
-						if (use1 .and. use2) then
+		  if (use1 .and. use2) then
 	             !Calculate V-matrix element for each lambda in the expansion
-		           lambdaind = 1
-		           do lambda = 0, indata%lambdamax
-		              do q = -lambda, lambda
-			               V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
-			               lambdaind = lambdaind + 1
-		              end do
-		           end do
-						end if
+		     lambdaind = 1
+		     do lambda = 0, indata%lambdamax
+		        do q = -lambda, lambda
+		           V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
+		           lambdaind = lambdaind + 1
+		        end do
+		     end do
+                  end if
 
-		        if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
-		           print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
-		           stop
-		        end if
+		  if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
+		     print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
+		     stop
+		  end if
 	       end do
 	    end do
 	    !!!$OMP END PARALLEL DO
@@ -836,10 +886,11 @@ module basismodule
 	 !         Xlm(theta,phi). Also known as real gaunt coefficients.
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 real(dpf) function Xint(l1, mu1, l2, mu2, l3, mu3) result(res)
+            use ieee_arithmetic
 	    use numbers
 	    implicit none
 	    real(dpf):: l1, mu1, l2, mu2, l3, mu3 
-	    real(dpf)::Yint
+	    real(dpf):: Yint
 	    real(dpf):: val
 	    real(dpf):: t1, t2
 	    real(dpf), dimension(3):: muvals, lVals
@@ -849,113 +900,114 @@ module basismodule
 	    logical:: found
 	    !complex(dpf):: v1, v2
 
-			!val = sqrt(3.0_dpf/(4.0_dpf*pi))*Yint(1.0_dpf,1.0_dpf,1.0_dpf,1.0_dpf,0.0_dpf,0.0_dpf)
-			!print*, val
+	    !val = sqrt(3.0_dpf/(4.0_dpf*pi))*Yint(1.0_dpf,1.0_dpf,1.0_dpf,1.0_dpf,0.0_dpf,0.0_dpf)
+	    !print*, val
 	    !stop
 
 	    !Use complete permutation symmetry of real gaunt coefficients to
-			!reduce calculation to one of several cases. 
-			!Case 1: mu1, mu2, mu3 all != 0
+	    !reduce calculation to one of several cases. 
+	    !Case 1: mu1, mu2, mu3 all != 0
 	    !Case 2: mu3 = 0, mu2, mu1 != 0
 	    !Case 3: mu2 = mu3 = 0, mu1 != 0
 	    !Simpler formulas apply in each of these cases
 	    if (mod(int(l1+l2+l3),2) .ne. 0) then
 	       res = 0.0_dpf
 	    else
-				 muVals(1) = mu1
-				 muVals(2) = mu2
-				 muVals(3) = mu3
-				 lVals(1) = l1
-				 lVals(2) = l2
-				 lVals(3) = l3
-
-				 numZero = 0
-				 isZero(:) = 0
-				 do ii = 1, 3
-				    if (int(abs(muVals(ii))) .eq. 0) then
-				       isZero(ii) = 1
-						end if
-				 end do
-			   numZero = sum(isZero)
+               muVals(1) = mu1
+               muVals(2) = mu2
+               muVals(3) = mu3
+               lVals(1) = l1
+               lVals(2) = l2
+               lVals(3) = l3
+               
+               numZero = 0
+               isZero(:) = 0
+               do ii = 1, 3
+                  if (int(abs(muVals(ii))) .eq. 0) then
+                     isZero(ii) = 1
+                  end if
+               end do
+	       numZero = sum(isZero)
  
 	       if (numZero .eq. 1) then
-						found = .false.
-						ii = 1 
-						do while (isZero(ii) .ne. 1)
-						   ii = ii + 1
-				    end do
-						if (ii .ne. 3) then
-						   templ = l3
-						   tempmu = mu3
-				       l3 = lVals(ii)
-						   mu3 = muVals(ii)
-							 lVals(ii) = templ
-							 muVals(ii) = tempmu
-							 l1 = lVals(1)
-							 mu1 = muVals(1)
-							 l2 = lVals(2)
-							 mu2 = muVals(2)
-						end if
+		  found = .false.
+		  ii = 1 
+		  do while (isZero(ii) .ne. 1)
+		     ii = ii + 1
+		  end do
+                  if (ii .ne. 3) then
+                     templ = l3
+                     tempmu = mu3
+                     l3 = lVals(ii)
+                     mu3 = muVals(ii)
+                     lVals(ii) = templ
+                     muVals(ii) = tempmu
+                     l1 = lVals(1)
+                     mu1 = muVals(1)
+                     l2 = lVals(2)
+                     mu2 = muVals(2)
+		  end if
 
 	          res = 2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pinum))*Yint(l1,mu2,l2,mu2,l3,0.0_dpf) &
 	                *REAL(conjg(VCoeff(mu2,mu1))*VCoeff(mu2,mu2))
 	       else if (numZero .eq. 2) then
-						res = 0.0_dpf
-				 else if (numZero .eq. 3) then
-            !found = .false.
-            !ii = 0
-            !do while (.not. found)
-            !   ii = ii + 1
-            !   if (int(abs(muVals(ii))) .ne. 0) then
-            !      found = .true.
-            !   end if
-            !end do
-            !if (ii .ne. 1) then
-            !   templ = lVals(ii)
-            !   tempmu = muVals(ii)
-            !   lVals(ii) = l1
-            !   muVals(ii) = mu1
-            !   l1 = templ
-            !   mu1 = tempmu
-            !   l2 = lVals(2)
-            !   mu2 = muVals(2)
-            !   l3 = lVals(3)
-            !   mu3 = muVals(3)
-            !end if
+	          res = 0.0_dpf
+	       else if (numZero .eq. 3) then
+                  !found = .false.
+                  !ii = 0
+                  !do while (.not. found)
+                  !   ii = ii + 1
+                  !   if (int(abs(muVals(ii))) .ne. 0) then
+                  !      found = .true.
+                  !   end if
+                  !end do
+                  !if (ii .ne. 1) then
+                  !   templ = lVals(ii)
+                  !   tempmu = muVals(ii)
+                  !   lVals(ii) = l1
+                  !   muVals(ii) = mu1
+                  !   l1 = templ
+                  !   mu1 = tempmu
+                  !   l2 = lVals(2)
+                  !   mu2 = muVals(2)
+                  !   l3 = lVals(3)
+                  !   mu3 = muVals(3)
+                  !end if
+
             
 	          !Xl0 and Yl0 coincide, special case. Allows use of existing function for Ylm.
 	          res =  sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pinum))*Yint(l1,0.0_dpf,l2,0.0_dpf,l3,0.0_dpf)
-				 else if (numZero .eq. 0) then
-		        !Formula for overlap of Xlm in terms of overlap of Ylm
-						t1 = 2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pinum))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
-		              *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2)*VCoeff(mu3,mu3))
-
-						t2 =2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pinum))*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3) &
-							 *REAL(conjg(VCoeff(mu2-mu3,mu1))*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
-				    !if ((abs(t1) .gt. 0.0_dpf) .and. (abs(t2) .gt. 0.0_dpf)) then
-						!	 print*, "ERROR", t1, t2
-						!	 v1 = VCoeff(mu2+mu3,mu1)
-						!	 v2 = VCoeff(mu2-mu3,mu1)
-            !  print*, v1, abs(mu1), abs(mu2+mu3)
-						!	 print*, v2, abs(mu1), abs(mu2-mu3)
-						!	 print*, "DONE"
-
-
-						!	 !print*, "ERROR: ", l1, mu1, l2, mu2, l3, mu3
-						!	 !print*, "Vals: ", mu1,  mu2+mu3, -mu2-mu3, mu2-mu3,mu3-mu2
-						!end if
-
-						res = t1 + t2
+	       else if (numZero .eq. 0) then
+		  !Formula for overlap of Xlm in terms of overlap of Ylm
+                  t1 = 2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pinum))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
+		       *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2)*VCoeff(mu3,mu3))
+                  t2 =2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pinum))*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3) & 
+                       *REAL(conjg(VCoeff(mu2-mu3,mu1))*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
+                  !if ((abs(t1) .gt. 0.0_dpf) .and. (abs(t2) .gt. 0.0_dpf)) then
+                      	!	 print*, "ERROR", t1, t2
+                      	!	 v1 = VCoeff(mu2+mu3,mu1)
+                      	!	 v2 = VCoeff(mu2-mu3,mu1)
+                  !  print*, v1, abs(mu1), abs(mu2+mu3)
+                        !	 print*, v2, abs(mu1), abs(mu2-mu3)
+                        !	 print*, "DONE"
+                        
+                        
+                        !	 !print*, "ERROR: ", l1, mu1, l2, mu2, l3, mu3
+                        !	 !print*, "Vals: ", mu1,  mu2+mu3, -mu2-mu3, mu2-mu3,mu3-mu2
+                        !end if
+                        
+                  res = t1 + t2
 		        !res = 2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pi))*Yint(l1,mu2+mu3,l2,mu2,l3,mu3) &
 		        !      *REAL(conjg(VCoeff(mu2+mu3,mu1))*VCoeff(mu2,mu2) &
 		        !      *VCoeff(mu3,mu3)) + 2.0_dpf*sqrt((2.0_dpf*l2+1.0_dpf)/(4.0_dpf*pi)) &
 			      !*Yint(l1,mu2-mu3,l2,mu2,l3,-mu3)*REAL(conjg(VCoeff(mu2-mu3,mu1)) &
 			      !*VCoeff(mu2,mu2)*VCoeff(-mu3,mu3))
-				 else
-				    print*, "TREAT ALL CASES!!!"
-						stop
+               else
+                  print*, "TREAT ALL CASES!!!"
+                  stop
 	       end if
 	    end if
+
 
 	 end function Xint
 

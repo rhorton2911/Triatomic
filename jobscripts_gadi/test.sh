@@ -1,0 +1,2 @@
+echo "TESTING"
+echo "TEST"

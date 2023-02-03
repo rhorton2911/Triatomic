@@ -1057,6 +1057,9 @@ subroutine structure12group(basis,oneestates,num_states,indata)
              
              !Calculate H12 interaction matrix elements <pn|H|n>, 
              !|n> = |e1> * |e2> and |np> = |e1p> * |e2p>
+             !$OMP PARALLEL DO DEFAULT(SHARED) & 
+             !$OMP PRIVATE(nc,ncp,nsp1,repnsp1,nsp2,repnsp2,nsp1p,repnsp1p,nsp2p,repnsp2p,Helement,belement) &
+             !$OMP SCHEDULE(DYNAMIC)
              do jj = 1, num_4econfigs
                 nc = nclist(jj)
                 ncp = ncplist(jj)
@@ -1081,19 +1084,20 @@ subroutine structure12group(basis,oneestates,num_states,indata)
                 b(ncp, nc) = belement
                 !print*, nc, ncp, Helement, belement
              end do
+             !$OMP END PARALLEL DO
 
-             if ((is .eq. 0) .and. (numcon .lt. 5)) then
-                open(90,file='HMatReese')
-                write(90,*) "HMat"
-                do kk = 1, numcon
-                   write(90,*) H(kk,:)
-                end do
-                write(90,*) "bmat"
-                do kk = 1, numcon
-                   write(90,*) b(kk,:)
-                end do
-                close(90)
-             end if 
+             !if ((is .eq. 0) .and. (numcon .lt. 5)) then
+             !   open(90,file='HMatReese')
+             !   write(90,*) "HMat"
+             !   do kk = 1, numcon
+             !      write(90,*) H(kk,:)
+             !   end do
+             !   write(90,*) "bmat"
+             !   do kk = 1, numcon
+             !      write(90,*) b(kk,:)
+             !   end do
+             !   close(90)
+             !end if 
 
 
              !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
@@ -1725,52 +1729,52 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
      n1_majconf = get_n_majconf(TargetStates1el%b(nst1))
 
      if(myid==0 .and. data_in%print_1el_basis) then
-       if(get_energy(TargetStates1el%b(nst1)) == 0.0d0) then
-         orb_type = 'Laguerre'
-	 mval = m1_majconf
-         write(666,'(I5.1,2X,I1,2A, 2X, I2.1, 2X, I2.1, 2X, A8)') nst1, n1_majconf, lchars(l1_majconf+1:l1_majconf+1), &
-	 Mchars(abs(mval)+1:abs(mval)+1), mval, get_par(TargetStates1el%b(nst1)), orb_type 
-         !write(666,'(I5.1,2X,A4 X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, orb_type
-       else
-         orb_type = '   MO   '
-         write(666,'(I5.1,2X,A4 X, I2.1, 2X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), orb_type
-       endif
+        if(get_energy(TargetStates1el%b(nst1)) == 0.0d0) then
+           orb_type = 'Laguerre'
+	         mval = m1_majconf
+           write(666,'(I5.1,2X,I1,2A, 2X, I2.1, 2X, I2.1, 2X, A8)') nst1, n1_majconf, lchars(l1_majconf+1:l1_majconf+1), &
+	               Mchars(abs(mval)+1:abs(mval)+1), mval, get_par(TargetStates1el%b(nst1)), orb_type 
+           !write(666,'(I5.1,2X,A4 X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, orb_type
+        else
+           orb_type = '   MO   '
+           write(666,'(I5.1,2X,A4 X, I2.1, 2X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), orb_type
+        endif
      endif
 
      do nst2=1,Nmax
-!!$--------------------- logic block: include or not config ------------
-	!For now just use frozen core approximation
-	if (nst1 .gt. 1) then
-	   cycle
-	end if
-
+   !!$--------------------- logic block: include or not config ------------
+      	 !For now just use frozen core approximation
+        if (nst1 .gt. 1) then
+           cycle
+        end if
+       
         !if(mnst1+mnst2 .ne. ma) cycle  !Replace with group representation condition
         if(nst1 .eq. nst2) then
            if(is .eq. 1) cycle  !spin symmetry condition
         endif
-        
-	repnst2 = -1
-	m2_majconf = get_m_majconf(TargetStates1el%b(nst2))
+           
+   	    repnst2 = -1
+   	    m2_majconf = get_m_majconf(TargetStates1el%b(nst2))
         l2_majconf = get_l_majconf(TargetStates1el%b(nst2))
         n2_majconf = get_n_majconf(TargetStates1el%b(nst2))
-       
+        
         ! Remove any (antisymmetric) duplicates.
         if(ncm .gt. 0) then
            icheck = 1
            call testsameconfiggroup(ncm,no1,no2,repo1,repo2,ico,nst1,repnst1,nst2,repnst2,icheck)
            if(icheck .eq. 0) cycle
         endif
-!!$--------------------- end logic block: include or not config ------------
-
+   !!$------------------ end logic block: include or not config ------------
+   
         ico = ico + 1
-  
-	m1val = m1_majconf 
-	m2val = m2_majconf 
+     
+   	    m1val = m1_majconf 
+   	    m2val = m2_majconf 
         if(myid==0 .and. data_in%print_2el_config .and. rep >= 0) write(777,'(I5,2X,2(I1,2A,5X),3X,2(I2.1,2X), 2(A6))') ico, &
           &n1_majconf, lchars(l1_majconf+1:l1_majconf+1), Mchars(abs(m1val)+1:abs(m1val)+1), &
           &n2_majconf, lchars(l2_majconf+1:l2_majconf+1), Mchars(abs(m2val)+1:abs(m2val)+1), replabels(rep), replabels(rep), &
           &TargetStates1el%b(nst1)%label, TargetStates1el%b(nst2)%label
-
+      
         if(ncm .gt. 0) then
            no1(ico) = nst1
            repo1(ico) = repnst1
