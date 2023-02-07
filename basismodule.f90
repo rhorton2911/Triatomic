@@ -28,7 +28,7 @@ module basismodule
 			integer:: isoscop   !(1=use, 0=regular calculation)
 			integer:: hernandeztest
 			integer:: isobasisop
-			integer:: conroybasis
+			!integer:: conroybasis
 			real(dpf):: R1
 			real(dpf):: R2
 			integer, dimension(20):: testk, testl, testm
@@ -94,9 +94,9 @@ module basismodule
 			indata%phi(3) = pinum*(angletemp/180.0_dpf)
 			read(20,*) 
 			read(20,*) indata%isoscop
-	                read(20,*) indata%hernandeztest
-	                read(20,*) indata%isobasisop
-	                read(20,*) indata%conroybasis
+	    read(20,*) indata%hernandeztest
+	    read(20,*) indata%isobasisop
+	    !read(20,*) indata%conroybasis
 			read(20,*) indata%R1
 			read(20,*) indata%R2
 	    
@@ -131,7 +131,7 @@ module basismodule
 
 			if (indata%isoscop .eq. 1) then
 			   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
-			         R1 = indata%R1
+			   R1 = indata%R1
 				 R2 = indata%R2
 				 if (indata%hernandeztest .eq. 1) then
 				    R1 = 3.50_dpf
@@ -155,9 +155,9 @@ module basismodule
 
 				 !Set up arrays storing indices of basis functions, hardcode
 				 !values from Conroy's paper.
-	                         indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
-	                         indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
-	                         indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
+	       indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
+	       indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
+	       indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
 				 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
 				 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
 				 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
@@ -235,236 +235,236 @@ module basismodule
 
 
 
-	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !Subroutine: construct_all_conroy_basis
-	 !Purpose: constructs the basis used by Conroy in in a calculation
-	 !         of H3++ structure, adapted to reflect certain properties
-	 !         of the H3++ molecule. Calculates B and K matrix elements as 
-	 !         part of this.
-	 !         Conroy, H. 1969. J. Chem. Phys. 51, 3979: Molecular Schrodinger Equation X
-	 !Note: basis indices used here and in conroy are: (k,l,m) <--> (i,j,k)
-	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine construct_all_conroy_basis(self, ingrid, indata, dataARG, KMat)
-			use grid_radial
-      use sturmian_class
-			use input_data
-			implicit none
-			type(basis_sturmian_nr), intent(inout):: self
-			type(smallinput), intent(in):: indata
-			type(input), intent(in):: dataARG
-			type(rgrid):: ingrid
-			complex(dpf), dimension(:,:), allocatable:: KMat
-			real(dpf), dimension(:,:), allocatable:: f8
-			real(dpf), dimension(:), allocatable:: gridr, func, temp
-      real(dpf), dimension(:), allocatable:: J, s1, s2 !Function q(r), sigma_1(r), sigma_2(r)
-      real(dpf), dimension(:), allocatable:: q !Function q(r), argument of laguerre polynomial
-      real(dpf), dimension(:), allocatable:: rho 
-			real(dpf):: a, e, gam, r0 !Parameters alpha, epsilon, gamma and rho
-			integer:: n   !Maximum order of the laguerre polynomials
-			integer:: labot, latop, k, l, kmin, kmax
-			real(dpf):: lagarg, lambda
-			integer:: ii, jj, kn, i1, i2
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !!Subroutine: construct_all_conroy_basis
+	 !!Purpose: constructs the basis used by Conroy in in a calculation
+	 !!         of H3++ structure, adapted to reflect certain properties
+	 !!         of the H3++ molecule. Calculates B and K matrix elements as 
+	 !!         part of this.
+	 !!         Conroy, H. 1969. J. Chem. Phys. 51, 3979: Molecular Schrodinger Equation X
+	 !!Note: basis indices used here and in conroy are: (k,l,m) <--> (i,j,k)
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !subroutine construct_all_conroy_basis(self, ingrid, indata, dataARG, KMat)
+	 ! 	use grid_radial
+   !   use sturmian_class
+	 ! 	use input_data
+	 ! 	implicit none
+	 ! 	type(basis_sturmian_nr), intent(inout):: self
+	 ! 	type(smallinput), intent(in):: indata
+	 ! 	type(input), intent(in):: dataARG
+	 ! 	type(rgrid):: ingrid
+	 ! 	complex(dpf), dimension(:,:), allocatable:: KMat
+	 ! 	real(dpf), dimension(:,:), allocatable:: f8
+	 ! 	real(dpf), dimension(:), allocatable:: gridr, func, temp
+   !   real(dpf), dimension(:), allocatable:: J, s1, s2 !Function q(r), sigma_1(r), sigma_2(r)
+   !   real(dpf), dimension(:), allocatable:: q !Function q(r), argument of laguerre polynomial
+   !   real(dpf), dimension(:), allocatable:: rho 
+	 ! 	real(dpf):: a, e, gam, r0 !Parameters alpha, epsilon, gamma and rho
+	 ! 	integer:: n   !Maximum order of the laguerre polynomials
+	 ! 	integer:: labot, latop, k, l, kmin, kmax
+	 ! 	real(dpf):: lagarg, lambda
+	 ! 	integer:: ii, jj, kn, i1, i2
 
-      call new_basis(self,indata%numtestfuncs)
-			allocate(rho(ingrid%nr), gridr(ingrid%nr))
-			gridr(:) = ingrid%gridr(:)
+   !   call new_basis(self,indata%numtestfuncs)
+	 ! 	allocate(rho(ingrid%nr), gridr(ingrid%nr))
+	 ! 	gridr(:) = ingrid%gridr(:)
 
-			e = sqrt(-2*indata%enparam)
-			gam = dble(sum(indata%charge))
-			a = gam/e - 1.0_dpf
-			rho = sum(dble(indata%charge(:))*indata%R(:))/gam
-			r0 = sum(dble(indata%charge(:))*indata%R(:))/gam
+	 ! 	e = sqrt(-2*indata%enparam)
+	 ! 	gam = dble(sum(indata%charge))
+	 ! 	a = gam/e - 1.0_dpf
+	 ! 	rho = sum(dble(indata%charge(:))*indata%R(:))/gam
+	 ! 	r0 = sum(dble(indata%charge(:))*indata%R(:))/gam
 
-			labot = dataARG%labot
-			latop  = dataARG%latop
-			print*, e, gam, a, rho, r0
+	 ! 	labot = dataARG%labot
+	 ! 	latop  = dataARG%latop
+	 ! 	print*, e, gam, a, rho, r0
 
-			allocate(s1(ingrid%nr), s2(ingrid%nr), J(ingrid%nr))
-			allocate(func(ingrid%nr), temp(ingrid%nr), q(ingrid%nr))
-			s1(:) = 1.0_dpf/sqrt(gridr(:)**2 + r0**2)
-			s2(:) = 1.0_dpf/sqrt(gridr(:)**2 + r0**2 + e**(-2))
-			J(:) = (s2(:)**(-a)) * exp(-gam*rho + (gam-e)/s1(:))
+	 ! 	allocate(s1(ingrid%nr), s2(ingrid%nr), J(ingrid%nr))
+	 ! 	allocate(func(ingrid%nr), temp(ingrid%nr), q(ingrid%nr))
+	 ! 	s1(:) = 1.0_dpf/sqrt(gridr(:)**2 + r0**2)
+	 ! 	s2(:) = 1.0_dpf/sqrt(gridr(:)**2 + r0**2 + e**(-2))
+	 ! 	J(:) = (s2(:)**(-a)) * exp(-gam*rho + (gam-e)/s1(:))
 
-			open(70,file='Jfunc.txt')
-			do ii=1, ingrid%nr
-				 write(70,*) gridr(ii), (s2(ii)**(-a))
-			end do
-			close(70)
-			stop
+	 ! 	open(70,file='Jfunc.txt')
+	 ! 	do ii=1, ingrid%nr
+	 ! 		 write(70,*) gridr(ii), (s2(ii)**(-a))
+	 ! 	end do
+	 ! 	close(70)
+	 ! 	stop
 
-			!Argument of laguerre polynomials
-			q(:) = 2.0_dpf*e*(1.0_dpf/s1(:) - r0)
+	 ! 	!Argument of laguerre polynomials
+	 ! 	q(:) = 2.0_dpf*e*(1.0_dpf/s1(:) - r0)
 
-			kn = 0 !Superindex for functions in basis
+	 ! 	kn = 0 !Superindex for functions in basis
 
-			do ii = 1, size(indata%testlvec)
-				 l = indata%testlvec(ii)
-				 !Get min and max k for this l
-				 kmin = indata%kminvec(ii)
-				 kmax = indata%kmaxvec(ii) 
+	 ! 	do ii = 1, size(indata%testlvec)
+	 ! 		 l = indata%testlvec(ii)
+	 ! 		 !Get min and max k for this l
+	 ! 		 kmin = indata%kminvec(ii)
+	 ! 		 kmax = indata%kmaxvec(ii) 
 
-				 n = kmax+l+1
+	 ! 		 n = kmax+l+1
 
-				 allocate(f8(grid%nr,n))
-				 f8(:,:) = 0.0_dpf
-				 !Calculate generalised laguerre polynomials using lagpol8 from sturmian
-				 lagarg = dble(2*l+1)
-				 lambda = 1.0_dpf
+	 ! 		 allocate(f8(grid%nr,n))
+	 ! 		 f8(:,:) = 0.0_dpf
+	 ! 		 !Calculate generalised laguerre polynomials using lagpol8 from sturmian
+	 ! 		 lagarg = dble(2*l+1)
+	 ! 		 lambda = 1.0_dpf
 
-				 !Call with q(r) as argument as per formula
-				 call lagpol8(lagarg, lambda, f8, ingrid%nr, n, q, ingrid%nr)
+	 ! 		 !Call with q(r) as argument as per formula
+	 ! 		 call lagpol8(lagarg, lambda, f8, ingrid%nr, n, q, ingrid%nr)
 
-				 !Lagpol calculates all polynomials from 0 to n-1, choose subset used in paper
-				 do k = kmin, kmax
-				    !Laguerre polynomials are left unnormalised in Conroy's
-						!work, using polynomials of order (k+l)
-						temp(:) = f8(:,k+l+1) 
+	 ! 		 !Lagpol calculates all polynomials from 0 to n-1, choose subset used in paper
+	 ! 		 do k = kmin, kmax
+	 ! 		    !Laguerre polynomials are left unnormalised in Conroy's
+	 ! 				!work, using polynomials of order (k+l)
+	 ! 				temp(:) = f8(:,k+l+1) 
 
-						kn = kn + 1
+	 ! 				kn = kn + 1
 
-						i1 = 1
-						i2 = grid%nr
+	 ! 				i1 = 1
+	 ! 				i2 = grid%nr
 
-						!Calculated radial part of basis function
-						func(:) = J(:)*temp(:)*(gridr(:)**l)*(s2(:)**(k-1))
-						call init_function(self%b(kn), l, k, i1, i2, func, ingrid%nr,1.0_dpf)
-				 end do
-				 deallocate(f8)
-			end do
+	 ! 				!Calculated radial part of basis function
+	 ! 				func(:) = J(:)*temp(:)*(gridr(:)**l)*(s2(:)**(k-1))
+	 ! 				call init_function(self%b(kn), l, k, i1, i2, func, ingrid%nr,1.0_dpf)
+	 ! 		 end do
+	 ! 		 deallocate(f8)
+	 ! 	end do
 
-			!Calculate the overlap matrix for the basis via integration
-			do ii = 1, indata%numtestfuncs
-				 do jj = 1, indata%numtestfuncs
-				    if ((indata%testl(ii) .eq. indata%testl(jj)) .and. &
-						    (indata%testm(ii) .eq. indata%testm(jj))) then
-				       self%ortint(ii,jj) = sum(self%b(ii)%f(:)*self%b(jj)%f(:)*ingrid%weight(:))
-				    else
-							 self%ortint(ii,jj) = 0.0_dpf
-						end if
-				 end do
-			end do
+	 ! 	!Calculate the overlap matrix for the basis via integration
+	 ! 	do ii = 1, indata%numtestfuncs
+	 ! 		 do jj = 1, indata%numtestfuncs
+	 ! 		    if ((indata%testl(ii) .eq. indata%testl(jj)) .and. &
+	 ! 				    (indata%testm(ii) .eq. indata%testm(jj))) then
+	 ! 		       self%ortint(ii,jj) = sum(self%b(ii)%f(:)*self%b(jj)%f(:)*ingrid%weight(:))
+	 ! 		    else
+	 ! 					 self%ortint(ii,jj) = 0.0_dpf
+	 ! 				end if
+	 ! 		 end do
+	 ! 	end do
 
-	    !Calculate K matrix elements
-			!call getConroyKMat(self, KMat, grid, indata, s1, s2, J, q, e, gam, a, rho, r0)
+	 !   !Calculate K matrix elements
+	 ! 	!call getConroyKMat(self, KMat, grid, indata, s1, s2, J, q, e, gam, a, rho, r0)
 
-			deallocate(gridr, s1, s2, J, temp, func, q, rho)
-	 end subroutine construct_all_conroy_basis
+	 ! 	deallocate(gridr, s1, s2, J, temp, func, q, rho)
+	 !end subroutine construct_all_conroy_basis
 
 
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !Subroutine: getConroyKMat
-	 !Purpose: calculates the K matrix elements for the basis used in
-	 !Conroy's paper.
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getConroyKMat(self, KMat, ingrid, indata, s1, s2, J, q, e, gam, a, rho, r0)
-			use grid_radial
-      use sturmian_class
-			use input_data
-	    implicit none
-			type(basis_sturmian_nr), intent(in):: self
-			complex(dpf), dimension(:,:), allocatable:: KMat
-			type(smallinput):: indata
-	    type(rgrid):: ingrid
-	    real(dpf), dimension(:):: s1, s2, J, q
-	    real(dpf), dimension(:):: rho
-	    real(dpf):: e, gam, a, r0  !Parameters used in basis def
-	    !Derivatives of functions s1, s2, q and J
-	    real(dpf), dimension(:), allocatable:: s1p, s1pp, s2p, s2pp
-	    real(dpf), dimension(:), allocatable:: qp, qpp, Jp, Jpp
-	    !Derivatives of the basis functions
-	    real(dpf), dimension(:), allocatable:: psi, psip, psipp
-	    real(dpf), dimension(:), allocatable:: t1, t2, t3
-	    real(dpf), dimension(:,:), allocatable:: f1, f2, f3
-	    integer:: ii, jj, k, l, kmax, n
-	    real(dpf):: lagarg, lambda
-	    !K operator acting on basis function
-	    real(dpf), dimension(:), allocatable:: Kb
-	    real(dpf), dimension(:), allocatable:: gridr
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !!Subroutine: getConroyKMat
+	 !!Purpose: calculates the K matrix elements for the basis used in
+	 !!Conroy's paper.
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !subroutine getConroyKMat(self, KMat, ingrid, indata, s1, s2, J, q, e, gam, a, rho, r0)
+	 ! 	use grid_radial
+   !   use sturmian_class
+	 ! 	use input_data
+	 !   implicit none
+	 ! 	type(basis_sturmian_nr), intent(in):: self
+	 ! 	complex(dpf), dimension(:,:), allocatable:: KMat
+	 ! 	type(smallinput):: indata
+	 !   type(rgrid):: ingrid
+	 !   real(dpf), dimension(:):: s1, s2, J, q
+	 !   real(dpf), dimension(:):: rho
+	 !   real(dpf):: e, gam, a, r0  !Parameters used in basis def
+	 !   !Derivatives of functions s1, s2, q and J
+	 !   real(dpf), dimension(:), allocatable:: s1p, s1pp, s2p, s2pp
+	 !   real(dpf), dimension(:), allocatable:: qp, qpp, Jp, Jpp
+	 !   !Derivatives of the basis functions
+	 !   real(dpf), dimension(:), allocatable:: psi, psip, psipp
+	 !   real(dpf), dimension(:), allocatable:: t1, t2, t3
+	 !   real(dpf), dimension(:,:), allocatable:: f1, f2, f3
+	 !   integer:: ii, jj, k, l, kmax, n
+	 !   real(dpf):: lagarg, lambda
+	 !   !K operator acting on basis function
+	 !   real(dpf), dimension(:), allocatable:: Kb
+	 !   real(dpf), dimension(:), allocatable:: gridr
 
-      allocate(KMat(indata%numtestfuncs, indata%numtestfuncs))
-			KMat(:,:) = 0.0_dpf
+   !   allocate(KMat(indata%numtestfuncs, indata%numtestfuncs))
+	 ! 	KMat(:,:) = 0.0_dpf
 
-	    allocate(s1p(ingrid%nr), s1pp(ingrid%nr), s2p(ingrid%nr), s2pp(ingrid%nr))
-	    allocate(qp(ingrid%nr), qpp(ingrid%nr), Jp(ingrid%nr), Jpp(ingrid%nr))
-	    allocate(Kb(ingrid%nr), psi(ingrid%nr), psip(ingrid%nr), psipp(ingrid%nr))
-			allocate(t1(ingrid%nr), t2(ingrid%nr), t3(ingrid%nr))
-			allocate(gridr(ingrid%nr))
+	 !   allocate(s1p(ingrid%nr), s1pp(ingrid%nr), s2p(ingrid%nr), s2pp(ingrid%nr))
+	 !   allocate(qp(ingrid%nr), qpp(ingrid%nr), Jp(ingrid%nr), Jpp(ingrid%nr))
+	 !   allocate(Kb(ingrid%nr), psi(ingrid%nr), psip(ingrid%nr), psipp(ingrid%nr))
+	 ! 	allocate(t1(ingrid%nr), t2(ingrid%nr), t3(ingrid%nr))
+	 ! 	allocate(gridr(ingrid%nr))
 
-			gridr(:) = ingrid%gridr(:)
+	 ! 	gridr(:) = ingrid%gridr(:)
 
-			do ii = 1, indata%numtestfuncs
-				 do jj = 1, indata%numtestfuncs 
-				    if ((indata%testl(ii) .eq. indata%testl(jj)) .and. &
-						    (indata%testm(ii) .eq. indata%testm(jj))) then
-							 k = indata%testk(jj)
-							 l = indata%testl(jj)
+	 ! 	do ii = 1, indata%numtestfuncs
+	 ! 		 do jj = 1, indata%numtestfuncs 
+	 ! 		    if ((indata%testl(ii) .eq. indata%testl(jj)) .and. &
+	 ! 				    (indata%testm(ii) .eq. indata%testm(jj))) then
+	 ! 					 k = indata%testk(jj)
+	 ! 					 l = indata%testl(jj)
 
-							 !Calculate using formulas for K[basis func]
-							 s1p(:) = -gridr(:)*(s1(:)**3) 
-							 s1pp(:) = -(s1(:)**2)*(s1(:) + 3.0_dpf*gridr(:)*s1p(:))
-							 s2p(:) = -gridr(:)*(s2(:)**3)
-							 s2pp(:) = -(s2(:)**2)*(s2(:) + 3.0_dpf*gridr(:)*s2p(:)) 
-							 qp(:) = -2.0_dpf*e*(s1(:)**(-2))*s1p(:)
-							 qpp(:) = -2.0_dpf*e*(s1(:)**(-2))*(-2.0_dpf*(s1(:)**(-1))*(s1p(:)**2) &
-							          + s1pp(:))
+	 ! 					 !Calculate using formulas for K[basis func]
+	 ! 					 s1p(:) = -gridr(:)*(s1(:)**3) 
+	 ! 					 s1pp(:) = -(s1(:)**2)*(s1(:) + 3.0_dpf*gridr(:)*s1p(:))
+	 ! 					 s2p(:) = -gridr(:)*(s2(:)**3)
+	 ! 					 s2pp(:) = -(s2(:)**2)*(s2(:) + 3.0_dpf*gridr(:)*s2p(:)) 
+	 ! 					 qp(:) = -2.0_dpf*e*(s1(:)**(-2))*s1p(:)
+	 ! 					 qpp(:) = -2.0_dpf*e*(s1(:)**(-2))*(-2.0_dpf*(s1(:)**(-1))*(s1p(:)**2) &
+	 ! 					          + s1pp(:))
 
-							 !Calculate laguerre polynomials used in formulas
-				       !Call with q(r) as argument as per formula
-							 kmax = indata%kmaxvec(indata%numtestfuncs)
-							 n = kmax + l + 1
-							 allocate(f1(ingrid%nr,n), f2(ingrid%nr,n), f3(ingrid%nr,n))
-							 lagarg = 2*l+1
-							 lambda = 1.0_dpf
-				       call lagpol8(lagarg, lambda, f1, grid%nr, n, q, ingrid%nr)
-							 lagarg = 2*l+2
-				       call lagpol8(lagarg, lambda, f2, grid%nr, n, q, ingrid%nr)
-							 lagarg = 2*l+3
-				       call lagpol8(lagarg, lambda, f3, grid%nr, n, q, ingrid%nr)
-							 t1(:) = f1(:,k+l+1)
-							 t2(:) = f2(:,k+l-1+1)
-							 if ((k .eq. 1) .and. (l .eq. 0)) then
-							    t3(:) = 0.0_dpf
-						   else
-							    t3(:) = f3(:,k+l-2+1)
-						   end if
+	 ! 					 !Calculate laguerre polynomials used in formulas
+	 ! 		       !Call with q(r) as argument as per formula
+	 ! 					 kmax = indata%kmaxvec(indata%numtestfuncs)
+	 ! 					 n = kmax + l + 1
+	 ! 					 allocate(f1(ingrid%nr,n), f2(ingrid%nr,n), f3(ingrid%nr,n))
+	 ! 					 lagarg = 2*l+1
+	 ! 					 lambda = 1.0_dpf
+	 ! 		       call lagpol8(lagarg, lambda, f1, grid%nr, n, q, ingrid%nr)
+	 ! 					 lagarg = 2*l+2
+	 ! 		       call lagpol8(lagarg, lambda, f2, grid%nr, n, q, ingrid%nr)
+	 ! 					 lagarg = 2*l+3
+	 ! 		       call lagpol8(lagarg, lambda, f3, grid%nr, n, q, ingrid%nr)
+	 ! 					 t1(:) = f1(:,k+l+1)
+	 ! 					 t2(:) = f2(:,k+l-1+1)
+	 ! 					 if ((k .eq. 1) .and. (l .eq. 0)) then
+	 ! 					    t3(:) = 0.0_dpf
+	 ! 				   else
+	 ! 					    t3(:) = f3(:,k+l-2+1)
+	 ! 				   end if
 
-							 psi(:) = self%b(jj)%f(:)/J(:)
+	 ! 					 psi(:) = self%b(jj)%f(:)/J(:)
 
-							 psip(:) = -t2(:)*qp(:)*(gridr(:)**l)*(s2(:)**(k-1)) &
-							           + t1(:)*(dble(l)*(gridr(:)**(l-1))*(s2(:)**(k-1)) + &
-							                   ((gridr(:)**l)*dble((k-1))*(s2(:)**(k-2))*s2p(:)))
+	 ! 					 psip(:) = -t2(:)*qp(:)*(gridr(:)**l)*(s2(:)**(k-1)) &
+	 ! 					           + t1(:)*(dble(l)*(gridr(:)**(l-1))*(s2(:)**(k-1)) + &
+	 ! 					                   ((gridr(:)**l)*dble((k-1))*(s2(:)**(k-2))*s2p(:)))
 
-							 psipp(:) = t3(:)*(qp(:)**2)*(gridr(:)**l)*(s2(:)**(k-1)) &
-							            -t2(:)*(qpp(:)*(gridr(:)**l)*(s2(:)**(k-1))  &
-							            + 2.0_dpf*qp(:)*dble(l)*(gridr(:)**(l-1))*(s2(:)**(k-1)) &
-							            + 2.0_dpf*qp(:)*(gridr(:)**l)*dble(k-1)*(s2(:)**(k-2))*s2p(:)) &
-							            + t1(:)*(2.0_dpf*dble(l)*(gridr(:)**(l-1))*dble(k-1)*(s2(:)**(k-2))*s2p(:) &
-							            + (gridr(:)**l)*dble((k-1)*(k-2))*(s2(:)**(k-3))*s2p(:) &
-							            + (gridr(:)**l)*dble(k-1)*(s2(:)**(k-2))*s2pp(:))
+	 ! 					 psipp(:) = t3(:)*(qp(:)**2)*(gridr(:)**l)*(s2(:)**(k-1)) &
+	 ! 					            -t2(:)*(qpp(:)*(gridr(:)**l)*(s2(:)**(k-1))  &
+	 ! 					            + 2.0_dpf*qp(:)*dble(l)*(gridr(:)**(l-1))*(s2(:)**(k-1)) &
+	 ! 					            + 2.0_dpf*qp(:)*(gridr(:)**l)*dble(k-1)*(s2(:)**(k-2))*s2p(:)) &
+	 ! 					            + t1(:)*(2.0_dpf*dble(l)*(gridr(:)**(l-1))*dble(k-1)*(s2(:)**(k-2))*s2p(:) &
+	 ! 					            + (gridr(:)**l)*dble((k-1)*(k-2))*(s2(:)**(k-3))*s2p(:) &
+	 ! 					            + (gridr(:)**l)*dble(k-1)*(s2(:)**(k-2))*s2pp(:))
 
-							 Jp(:) = J(:)*((-a/s2(:))*s2p(:) - (gam-e)*(s1(:)**(-2))*s1p(:))
-							 Jpp(:) = Jp(:)*(Jp(:)/J(:)) + J(:)*((a/(s2(:)**2))*(s2p(:)**2) &
-							 - (a/s2(:))*s2pp(:) + 2.0_dpf*(gam-e)*(s1(:)**(-3))*(s1p(:)**2) &
-							 - (s1(:)**(-2))*s1pp(:)*(gam-e)) 
+	 ! 					 Jp(:) = J(:)*((-a/s2(:))*s2p(:) - (gam-e)*(s1(:)**(-2))*s1p(:))
+	 ! 					 Jpp(:) = Jp(:)*(Jp(:)/J(:)) + J(:)*((a/(s2(:)**2))*(s2p(:)**2) &
+	 ! 					 - (a/s2(:))*s2pp(:) + 2.0_dpf*(gam-e)*(s1(:)**(-3))*(s1p(:)**2) &
+	 ! 					 - (s1(:)**(-2))*s1pp(:)*(gam-e)) 
 
-							 Kb(:) = psi(:)*(Jpp(:) + (2.0_dpf/gridr(:))*Jp(:) - &
-							 (dble(l*(l+1))/(gridr(:)**2))*J(:)) + &
-							 psip(:)*2.0_dpf*(J(:)/gridr(:) + Jp(:)) + &
-							 psipp(:)*J(:) 
-							 Kb(:) = (-0.5_dpf)*Kb(:)
+	 ! 					 Kb(:) = psi(:)*(Jpp(:) + (2.0_dpf/gridr(:))*Jp(:) - &
+	 ! 					 (dble(l*(l+1))/(gridr(:)**2))*J(:)) + &
+	 ! 					 psip(:)*2.0_dpf*(J(:)/gridr(:) + Jp(:)) + &
+	 ! 					 psipp(:)*J(:) 
+	 ! 					 Kb(:) = (-0.5_dpf)*Kb(:)
 
-							 !Explicitly compute integral
-							 KMat(ii,jj) = sum(self%b(ii)%f(:)*Kb(:)*grid%weight(:))
-							 deallocate(f1, f2, f3)
-				    else
-							 KMat(ii,jj) = 0.0_dpf
-						end if
-				 end do
-			end do
+	 ! 					 !Explicitly compute integral
+	 ! 					 KMat(ii,jj) = sum(self%b(ii)%f(:)*Kb(:)*grid%weight(:))
+	 ! 					 deallocate(f1, f2, f3)
+	 ! 		    else
+	 ! 					 KMat(ii,jj) = 0.0_dpf
+	 ! 				end if
+	 ! 		 end do
+	 ! 	end do
 
-	    deallocate(s1p, s1pp, s2p, s2pp, qp, qpp, Jp, Jpp)
-			deallocate(Kb, psip, psipp, t1, t2, t3, gridr, f1, f2, f3)
-	 end subroutine getConroyKMat
+	 !   deallocate(s1p, s1pp, s2p, s2pp, qp, qpp, Jp, Jpp)
+	 ! 	deallocate(Kb, psip, psipp, t1, t2, t3, gridr, f1, f2, f3)
+	 !end subroutine getConroyKMat
 
 	 
 
@@ -571,7 +571,7 @@ module basismodule
 	 !         potential. Called to precalculate these matrix elements before their 
 	 !         use in computing potential matrix elements
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getAngular(num_func, angular, l_list, m_List, indata)
+	 subroutine getAngular(num_func, angular, l_list, m_list, indata)
 	    implicit none
 	    type(smallinput):: indata
 	    real(dpf), dimension(:,:,:):: angular
@@ -579,57 +579,49 @@ module basismodule
 	    integer, dimension(:):: l_list, m_list
 	    integer:: lambdaind, lambda, q
 	    integer:: ii, jj
-            real(dpf):: overlap
-            
+      real(dpf):: overlap      
 	    integer:: li, mi, lj, mj, liPrev, miPrev, ljPrev, mjPrev, iiPrev, jjPrev
-            !legacy fortran common block variables used in wigner.f, need to make openmp private
-            !integer mmax
-            !parameter (mmax=501)
-            !real(dpf):: H
-            !integer:: J, IERR, IERCT
-            !COMMON / CNJSAVE / H(mmax), J(mmax)
-            !COMMON/ FGERCM /IERR,IERCT
-	    !!!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
- 
-            liPrev = -1
-            ljPrev = -1
-            miPrev = -1
-            mjPrev = -1
-            iiPrev = -1
-            jjPrev = -1
 
-            !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
+      liPrev = -1
+      ljPrev = -1
+      miPrev = -1
+      mjPrev = -1
+      iiPrev = -1
+      jjPrev = -1
+
+      !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
 	    !!!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
-            do ii = 1, num_func
-	             !print*, ii
-               do jj = 1, num_func
-                  li = l_list(ii)
-                  mi = m_list(ii)
-                  lj = l_list(jj)
-                  mj = m_list(jj)
-                  lambdaind=1
-                  do lambda = 0, indata%lambdamax
-                     do q = -lambda, lambda
-                        if (((liPrev .eq. li) .and. (miPrev .eq. mi)) .and. ((ljPrev .eq. lj) .and. (mjPrev .eq. mj))) then
-                           angular(lambdaind,ii,jj) = angular(lambdaind,iiPrev,jjPrev)
-                        else
-                           call callOverlap(overlap,dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj),indata%harmop)
-                           angular(lambdaind,ii,jj) = overlap
-                           !print*, li, mi, lambda, q, lj, mj
-                           !print*, angular(lambdaind,ii,jj)
-                        end if
-                        
-                        lambdaind = lambdaind + 1 
-                     end do
-                  end do
-                  liPrev = li
-                  miPrev = mi
-                  ljPrev = lj
-                  mjPrev = mj
-                  iiPrev = ii
-                  jjPrev = jj
+	    !!!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
+      do ii = 1, num_func
+	       !print*, ii
+         do jj = 1, num_func
+            li = l_list(ii)
+            mi = m_list(ii)
+            lj = l_list(jj)
+            mj = m_list(jj)
+            lambdaind=1
+            do lambda = 0, indata%lambdamax
+               do q = -lambda, lambda
+                  if (((liPrev .eq. li) .and. (miPrev .eq. mi)) .and. ((ljPrev .eq. lj) .and. (mjPrev .eq. mj))) then
+                     angular(lambdaind,ii,jj) = angular(lambdaind,iiPrev,jjPrev)
+                  else
+                     call callOverlap(overlap,dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj),indata%harmop)
+                     angular(lambdaind,ii,jj) = overlap
+                     !print*, li, mi, lambda, q, lj, mj
+                     !print*, angular(lambdaind,ii,jj)
+                  end if
+                  
+                  lambdaind = lambdaind + 1 
                end do
             end do
+            liPrev = li
+            miPrev = mi
+            ljPrev = lj
+            mjPrev = mj
+            iiPrev = ii
+            jjPrev = jj
+         end do
+      end do
 	    !!!$OMP END PARALLEL DO 
 
 	 end subroutine getAngular
@@ -648,7 +640,7 @@ module basismodule
             implicit none
             real(dpf):: li, mi, lambda, q, lj, mj, overlap
             integer:: harmop 
-	    real(dpf):: Yint
+	          real(dpf):: Yint
 
             if (harmop .eq. 0) then
                overlap = sqrt(dble(2*lambda+1)/(4.0_dpf*pinum)) &
@@ -662,7 +654,7 @@ module basismodule
                end if
             end if
 
-         end subroutine
+         end subroutine callOverlap
 
 
 
@@ -703,7 +695,7 @@ module basismodule
 		        lambdaind = 1
 		        do lambda = 0, indata%lambdamax
 		           do q = -lambda, lambda
-	                            f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
+	                f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
 			            VRadMatEl(lambdaind,n,m) = sum(f(i1:i2)*ingrid%weight(i1:i2))
 			            lambdaind = lambdaind + 1
 		           end do
@@ -743,29 +735,29 @@ module basismodule
 	    do ii=1, num_func
 	       !print*, ii
 	       do jj = 1, num_func
-		  !n = sturm_ind_list(ii)
-		  !m = sturm_ind_list(jj)
-		  n = ii
-		  m = jj
+   		      n = sturm_ind_list(ii)
+   		      m = sturm_ind_list(jj)
+   		      !n = ii
+   		      !m = jj
+   
+		        use1 = use_list(ii)
+		        use2 = use_list(jj)
 
-		  use1 = use_list(ii)
-		  use2 = use_list(jj)
-
-		  if (use1 .and. use2) then
+		        if (use1 .and. use2) then
 	             !Calculate V-matrix element for each lambda in the expansion
-		     lambdaind = 1
-		     do lambda = 0, indata%lambdamax
-		        do q = -lambda, lambda
-		           V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
-		           lambdaind = lambdaind + 1
-		        end do
-		     end do
-                  end if
+		           lambdaind = 1
+		           do lambda = 0, indata%lambdamax
+		              do q = -lambda, lambda
+		                 V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
+		                 lambdaind = lambdaind + 1
+		              end do
+		           end do
+            end if
 
-		  if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
-		     print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
-		     stop
-		  end if
+		        if (.not. (int(real(V(ii,jj))) .eq. int(real(V(ii,jj))))) then
+		           print*, "INVALID MATRIX ELEMENT (ii,jj): ", ii, jj, V(ii,jj)
+		           stop
+		        end if
 	       end do
 	    end do
 	    !!!$OMP END PARALLEL DO
@@ -1088,18 +1080,18 @@ module basismodule
 	 !         Accounts for requirement that m be positive enforced by
 	 !         standard legendre polynomial subroutine.
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 real(dpf) function getPLMNorm(l,m,u) result(res)
-	    implicit none
-	    real(dpf):: u   !Argument of the polynomial
-	    integer:: l, m
-	    real(dpf):: PLM  !Define data type for output of PLM f77 function
+	! real(dpf) function getPLMNorm(l,m,u) result(res)
+	!    implicit none
+	!    real(dpf):: u   !Argument of the polynomial
+	!    integer:: l, m
+	!    real(dpf):: PLM  !Define data type for output of PLM f77 function
 
-	    res = getCoeff(l,abs(m))*PLM(l,abs(m),u)
-	    if (m .lt. 0) then
-	       !Use formula for product of c_lm and P_lm with sign of m reversed
-	       res = ((-1.0_dpf)**m)*res
-	    end if
-	 end function getPLMNorm
+	!    res = getCoeff(l,abs(m))*PLM(l,abs(m),u)
+	!    if (m .lt. 0) then
+	!       !Use formula for product of c_lm and P_lm with sign of m reversed
+	!       res = ((-1.0_dpf)**m)*res
+	!    end if
+	! end function getPLMNorm
 
 
 
@@ -1112,27 +1104,27 @@ module basismodule
       !         definition.
       !Input: requires l .ge. 0 and m .ge. 0
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      real(dpf) function getCoeff(l,m) result(coeff)
-         use numbers
-         integer:: l,m
-         integer:: ii
-         integer(kind=largeInt):: denom
+   !   real(dpf) function getCoeff(l,m) result(coeff)
+   !      use numbers
+   !      integer:: l,m
+   !      integer:: ii
+   !      integer(kind=largeInt):: denom
 
-         if (m .lt. 0) then
-            print*, "ERROR: normalisation coefficients for spherical harmonics defined only for positive m. Stopping"
-            stop
-         end if
+   !      if (m .lt. 0) then
+   !         print*, "ERROR: normalisation coefficients for spherical harmonics defined only for positive m. Stopping"
+   !         stop
+   !      end if
 
-         denom = 1
-         if (m .gt. 0) then
-            do ii = l-m+1, l+m
-               denom = denom*ii
-            end do
-         end if
+   !      denom = 1
+   !      if (m .gt. 0) then
+   !         do ii = l-m+1, l+m
+   !            denom = denom*ii
+   !         end do
+   !      end if
 
-         coeff = ((-1.0_dpf)**m)*sqrt(dble(2*l+1)/4*pinum)*sqrt(1.0_dpf/dble(denom))
+   !      coeff = ((-1.0_dpf)**m)*sqrt(dble(2*l+1)/4*pinum)*sqrt(1.0_dpf/dble(denom))
 
-      end function getCoeff
+   !   end function getCoeff
 
 
 

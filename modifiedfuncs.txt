@@ -1,0 +1,16 @@
+one_electron_func_group.f90:  all new functions
+structure12group - new
+H12me_group - new
+V12_group - new
+rearrange - modified
+config12_tmp_st_group - new
+config12_st_group - new
+getKMatM (sturmian.f90) - new
+construct_st - modified
+calc_spectro_factors_group - new
+
+
+
+Incorrect comments:
+- hybdrid_MSCbasis: talks about F5 files, which are no longer used
+- combine_basis_nr (sturmian.f90):: also talks about F5 files.

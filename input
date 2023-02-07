@@ -17,7 +17,6 @@
 0         !Run test case (1=yes, 0 =normal run)
 0         !Run using Hernandez geomtry (1=yes,0=no)
 0         !Restrict basis for test case (1=yes, 0=no)
-0         !Use conway basis instead (1=yes, 0=no)
 1.68       !Side length 1
 1.68       !Side length 2
 

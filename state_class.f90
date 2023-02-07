@@ -6,7 +6,7 @@ module state_class
      logical:: hlike
      character(len=5) :: label ! Label representing the quantum numbers (e.g. ground state is 1sSg)
      character(len=4) :: domconfig
-     real(dpf):: M ! total angular momentum projection of the state
+     real(dpf):: M ! total angular momentum projection of the state, mmajor config for non-linear targets
      integer:: parity  ! parity (+1, -1) of the state
      real(dpf):: spin  ! spin = 0,1 for two-electron targets, 1/2 for one-electron targets
      real(dpf):: energy
@@ -20,7 +20,7 @@ module state_class
 
      integer:: l   ! major config l value
      integer:: n   ! major config n value
-		 integer:: mmajconf
+		 ! major config m value stored in M above
 
      integer:: inum ! state index for given target symmetry
 
@@ -43,7 +43,7 @@ module state_class
 
   end type basis_state
 
-  public :: get_ang_mom_proj, get_par, get_spin, get_energy, new_basis_st, destruct_basis_st, sort_by_energy_basis_st, basis_size,print_energy_basis_st, calc_spectro_factors,  construct_st, destruct_st, copy_st, get_nusemax, get_nam, get_nuse, get_na, get_ma,get_CI, ovlp_st, modify_CI_state, get_n_majconf, set_n_majconf, get_l_majconf, set_l_majconf, get_m_majconf, set_m_majconf, set_label, get_label, write_1elState
+  public :: get_ang_mom_proj, get_par, get_spin, get_energy, new_basis_st, destruct_basis_st, sort_by_energy_basis_st, basis_size,print_energy_basis_st, calc_spectro_factors,  construct_st, destruct_st, copy_st, get_nusemax, get_nam, get_nuse, get_na, get_ma,get_CI, ovlp_st, modify_CI_state, get_n_majconf, set_n_majconf, get_l_majconf, set_l_majconf, set_label, get_label, write_1elState
   
   
   interface get_n_majconf
@@ -54,9 +54,9 @@ module state_class
      module procedure get_l_majconf
   end interface
 
-  interface get_m_majconf
-     module procedure get_m_majconf
-  end interface
+  !interface get_m_majconf
+  !   module procedure get_m_majconf
+  !end interface
 
   interface get_ang_mom_proj
      module procedure get_ang_mom_proj_st
@@ -127,7 +127,7 @@ contains
 !
 !
   subroutine  construct_st(self,hlike,m,parity,spin,energy,inum,ncm,CI,no1,mo1,no2,mo2,phase)
-
+	  use input_data  !data_in
     implicit none
 
     type(state), intent(inout):: self
@@ -142,6 +142,7 @@ contains
     integer, dimension(ncm), intent(in) :: no1, no2, phase, mo1, mo2
     optional:: no2, phase, mo2
     integer:: i
+		logical:: goodm
 
     self%hlike = hlike
     self%m = m
@@ -151,7 +152,6 @@ contains
 
     self%l = -1
     self%n = -1
-	  self%mmajconf = -1
 
     self%inum = inum
 
@@ -161,7 +161,7 @@ contains
        self%na(1:ncm) = no1(1:ncm)
        self%ma(1:ncm) = mo1(1:ncm)
        do i = 1, ncm
-          if ( self%m /= self%ma(i) ) then
+          if ( data_in%good_m .and. (self%m /= self%ma(i)) ) then
              print*,"Error construct_st: angular projection for target state m and mo1 different"
              print*, 'self%m, self%ma(i) =', self%m, self%ma(i)
              stop
@@ -560,25 +560,25 @@ contains
   end subroutine set_l_majconf
 !
 !
-  function get_m_majconf(self)
-    implicit none
-    integer:: get_m_majconf
-    type(state), intent(in):: self
-    
-    get_m_majconf = self%mmajconf
-
-  end function get_m_majconf!
+!  function get_m_majconf(self)
+!    implicit none
+!    integer:: get_m_majconf
+!    type(state), intent(in):: self
+!    
+!    get_m_majconf = self%mmajconf
+!
+!  end function get_m_majconf!
 !
 !
-  subroutine set_m_majconf(self,m)
-    implicit none    
-    type(state):: self
-    integer, intent(in):: m
-
-    self%mmajconf = m
-
-  end subroutine set_m_majconf
+!  subroutine set_m_majconf(self,m)
+!    implicit none    
+!    type(state):: self
+!    integer, intent(in):: m
 !
+!    self%mmajconf = m
+!
+!  end subroutine set_m_majconf
+!!
 !
   function get_nam_st(self)
     implicit none
@@ -1152,6 +1152,7 @@ contains
     real(dpf), dimension(:,:), allocatable :: spectroMat
 
 
+
     ! Set up the file.
     open(10, file='states.core_parts')
     write(10,'(A)',advance='no') '#state n   l   m  par  label  Energy    S(l)   sum(S)'
@@ -1213,6 +1214,111 @@ contains
   end subroutine calc_spectro_factors
   !
   !
+
+  subroutine calc_spectro_factors_group(self, bst, labot,latop, sturm_ind_list, m_list)
+    !
+    ! Calculates the spectroscopic factors of each state for each subset of basis functions
+    ! and guesses the l (in TargetState%l array) and thus n (in each state%n) of the state. 
+    !
+    ! JS 6/12/11
+    !
+    use input_data
+    use MPI_module
+    use sturmian_class
+
+    implicit none
+
+    type(basis_state), intent(inout) :: self
+    type(basis_sturmian_nr), intent(in) :: bst
+    integer, intent(in):: labot, latop
+
+    type(state), pointer :: stateObj, stateObj2
+    type(sturmian_nr), pointer :: sturmObj
+    logical :: isDebug
+    character(len=13) :: fileName
+    integer :: stateNum, n,l,m,par, nFunc, i,j
+    integer, dimension(:), allocatable :: naVec
+    real(dpf) :: energy, CI
+    real(dpf), dimension(0:latop) :: spectroVec
+    real(dpf), dimension(:), allocatable :: sumVec
+    real(dpf), dimension(:,:), allocatable :: spectroMat
+
+		integer, dimension(:):: sturm_ind_list   !length of nam=num_func
+		integer, dimension(:):: m_list   !length of nam=num_func
+
+
+    ! Set up the file.
+    open(10, file='states.core_parts')
+    write(10,'(A)',advance='no') '#state n   l   m  par  label  Energy    S(l)   sum(S)'
+    do i = labot, min(latop,9)
+       write(10,'(3X,A,I1,A)',advance='no') 'S(', i, ') '
+    enddo
+    do i = 10, latop
+       write(10,'(3X,A,I2,A)',advance='no') 'S(', i, ')'
+    enddo
+    write(10,*)
+
+
+    do stateNum = 1, basis_size_st(self)   ! Loop through all the states.
+
+       stateObj => self%b(stateNum)   ! Pointer to the current state object.
+       energy = get_energy(stateObj)   ! Energy of the state.
+       m = get_ang_mom_proj(stateObj)   ! Angular momentum projection.
+       par = get_par(stateObj)   ! Parity (+1 or -1) of the state.
+       nFunc = get_nam_st(stateObj)   
+
+       allocate( naVec(nFunc), spectroMat(nFunc,nFunc), sumVec(nFunc) )
+       naVec = stateObj%na
+       !spectroMat(:,:) = bst%ortint(naVec(:),naVec(:))
+			 !SpectroMat should be initialised to overlap matrix of sturmian basis
+			 spectroMat(:,:) = 0d0
+			 do i = 1, nFunc
+					do j = 1, nFunc
+						 if (m_list(i) .eq. m_list(j)) then
+						    spectroMat(i,j) = bst%ortint(sturm_ind_list(i),sturm_ind_list(j))
+						 end if
+				  end do
+			 end do
+
+       do i = 1, nFunc
+          CI = get_CI(stateObj,i)
+          spectroMat(i,:) = CI * spectroMat(i,:)
+          spectroMat(:,i) = CI * spectroMat(:,i)
+       end do
+
+       spectroVec(:) = 0d0
+       sumVec = sum( spectroMat(:,:), 1 )
+       do i = 1, nFunc
+          l = get_ang_mom( bst%b(sturm_ind_list(naVec(i))) )
+          spectroVec(l) = spectroVec(l) + sumVec(i)
+       end do
+
+       l = maxloc(spectroVec, 1) - 1   ! Largest spectroscopic factor.
+       n = l + 1   ! Ensures n is greater than l.
+       stateObj%l = l   ! Assigns a value of l to the state.
+
+       do i = 1, stateNum-1   ! Search through previous states to generate n.
+          stateObj2 => self%b(i)
+          if ( get_l_majconf(stateObj2)==l .and. get_ang_mom_proj(stateObj2)==m ) n=n+1
+       enddo
+       stateObj%n = n
+       !Liam commented below so inum retains definition of index within target symmetry
+       !stateObj%inum = n - l ! Mark addition inum = k of Laguerre function 
+       stateObj%label = make_label_1e(n,l,m)
+
+       write(10,'(5I4,A7,F10.5,99F8.4)') stateNum, n,l,m,par, stateObj%label, energy, spectroVec(l), sum(spectroVec), spectroVec
+       deallocate(naVec, spectroMat, sumVec)
+
+    enddo ! stateNum
+
+    close(10)
+
+
+  end subroutine calc_spectro_factors_group
+
+
+
+
   subroutine spectroscopic_2e(TargetStates2el)
     !
     implicit none

@@ -783,27 +783,29 @@ contains
 	 !Purpose: calculates the one-electron K matrix elements for a non-orthogonal Laguerre
 	 !         resolved in all three indices (k,l,m). i.e. Phi = (1/r)phi_kl(r)X_lm(theta,phi)
 	 !         Takes pre-calculated overlap matrix B as input as K elements are proportional
-	 !         to B elements
+	 !         to B elements for a given l
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getKMatM(KMat, B, self)
+	 subroutine getKMatM(KMat, B, self, num_func, sturm_ind_list)
 	    use input_data  !Defines global data_in
 			implicit none
       type(basis_sturmian_nr), intent(inout):: self
 			real(dpf), dimension(:,:), allocatable:: KMat
 			real(dpf), dimension(:,:):: B
+			integer:: num_func
 			integer:: n
+			integer, dimension(:):: sturm_ind_list
 			real(dpf):: alphal
 			integer:: l, ii, jj, kk, lblocksize
 
-			n = self%n
-			allocate(KMat(n,n))
+			allocate(KMat(num_func,num_func))
 
       !K-matrix elements: analytical formula 
       !K matrix is block diagonal in m and in l
       !l specifies a block and m specifies a particular sub-block
       KMat(:,:) = 0.0_dpf
-      do ii = 1, self%n
-         l = self%b(ii)%l
+      do ii = 1, num_func
+				 n = sturm_ind_list(ii)
+         l = self%b(n)%l
          alphal=data_in%alpha(l)
          KMat(ii,ii) = (alphal**2)
       end do
@@ -812,14 +814,19 @@ contains
       jj=0
       kk=0
       lblocksize=0
-      do ii = 1, self%n
-         if (l .eq. self%b(ii)%l) then
+			!Formula: K_ij = alpha_li^2 * I_ij - 0.5*alpha_li^2 * B_ij * I_lilj * I_mi_mj  : I is kronecker delta 
+			!First term evaluated above, formula holds for both real and complex spherical harmonics
+      do ii = 1, num_func
+				 n = sturm_ind_list(ii)
+
+				 !Block diagonal in l by above formula
+         if (l .eq. self%b(n)%l) then
          	 cycle
          end if
-         l = self%b(ii)%l
+         l = self%b(n)%l
          alphal = data_in%alpha(l)
          !Assuming we choose the same range of k for each m at a given l
-         lblocksize = data_in%nps(l)*(2*l+1)
+         lblocksize = data_in%nps(l)*(2*l+1)  
          jj=kk+1
          kk = kk + lblocksize
          KMat(jj:kk,jj:kk) = KMat(jj:kk,jj:kk) - 0.5_dpf*(alphal**2)*B(jj:kk,jj:kk)

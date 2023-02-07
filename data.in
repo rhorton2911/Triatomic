@@ -38,8 +38,8 @@ OUTPUT
 END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
-  LMAX                      : 8                       #Max orbital angular momentum, l=0,...,LMAX
-  BASIS_SIZE                : 60-l                    #Number of basis functions per l
+  LMAX                      : 2                       #Max orbital angular momentum, l=0,...,LMAX
+  BASIS_SIZE                : 10-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
 ONE_ELECTRON_STATES                                   #Choose which one-electron states to keep
@@ -50,11 +50,11 @@ END                                                   #If the system does not ha
 
 SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for two-electron diagonalisation (or maybe second one-electron diagonalisation) 
   USE_SECOND_BASIS          : ON                      #If OFF then the one-electron states kept from the first diagonalisation form the basis for the second diagonalisation
-  LMAX                      : 4                       #Max l of Laguerre functions
+  LMAX                      : 1                       #Max l of Laguerre functions
   BASIS_SIZE                : 50-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
   
-  INSERT_ONE_EL_STATES      : 2                       #Number of one-electron states from first diagonalisation to insert in second basis
+  INSERT_ONE_EL_STATES      : 5                       #Number of one-electron states from first diagonalisation to insert in second basis
 
   INSERT_NATURAL_ORBITALS   : 0                       #Number of natural orbitals to insert in second basis (specify a number or "ALL")
   ONLY_NATURAL_ORBITALS     : OFF                     #Perform second diagonalisation only using natural orbitals (ON or OFF)
@@ -62,10 +62,10 @@ SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for tw
   NATORB_GS_PAR             : 1                       #Parity "  "
   NATORB_GS_SPIN            : 0                       #Spin   "  "
 
-  USE_SUB_BASIS             : ON                      #Define an additional basis which replaces Laguerre functions from main second basis
-  SUB_LMAX                  : 3                       #Lmax of the sub basis
-  SUB_BASIS_SIZE            : 3, 2, 3, 1              #Number of funcions (per l) in the sub basis
-  SUB_BASIS_EXP_FALLOFF     : 2.0, 2.0, 2.0, 2.0      #Exponential fallofs per l (spherical) or per m (spheroidal) for the sub basis
+  USE_SUB_BASIS             : OFF                      #Define an additional basis which replaces Laguerre functions from main second basis
+  SUB_LMAX                  : 0  #3                       #Lmax of the sub basis
+  SUB_BASIS_SIZE            : 3  #, 2, 3, 1              #Number of funcions (per l) in the sub basis
+  SUB_BASIS_EXP_FALLOFF     : 2.0 #, 2.0, 2.0, 2.0      #Exponential fallofs per l (spherical) or per m (spheroidal) for the sub basis
 END
 
 TWO_ELECTRON_CONFIGURATIONS                           #Choose how the two-electron configurations are built from the one-electron basis

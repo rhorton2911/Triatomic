@@ -2,7 +2,7 @@
 !Module: harms.f90
 !Purpose: contains functions for evaluating the spherical harmonics
 !         Bizarrely, functions to do this do not come standard with 
-!         any fortran compilers (Come in people, you've had since 1977!)
+!         any fortran compilers (Come on people, you've had since 1977!)
 !Author: Reese Horton, Curtin University
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

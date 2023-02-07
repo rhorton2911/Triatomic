@@ -1622,7 +1622,7 @@ subroutine config12_tmp_st_group(TargetStates1el,is,l12max,l_ion_core,n_ion_core
   do nst1=1,Nmax
      !mnst1 = get_ang_mom_proj(TargetStates1el%b(nst1))
 	   repnst1 = -1 
-	   m1_majconf = get_m_majconf(TargetStates1el%b(nst1))
+	   m1_majconf = get_ang_mom_proj(TargetStates1el%b(nst1))
      l1_majconf = get_l_majconf(TargetStates1el%b(nst1))
      n1_majconf = get_n_majconf(TargetStates1el%b(nst1)) 
 
@@ -1642,7 +1642,7 @@ subroutine config12_tmp_st_group(TargetStates1el,is,l12max,l_ion_core,n_ion_core
         endif
         
 				repnst2 = -1
-	      m2_majconf = get_m_majconf(TargetStates1el%b(nst2))
+	      m2_majconf = get_ang_mom_proj(TargetStates1el%b(nst2))
         l2_majconf = get_l_majconf(TargetStates1el%b(nst2))
         n2_majconf = get_n_majconf(TargetStates1el%b(nst2))
 
@@ -1724,7 +1724,7 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
   ico = 0
   do nst1=1,Nmax
      repnst1 = -1
-     m1_majconf = get_m_majconf(TargetStates1el%b(nst1))
+     m1_majconf = get_ang_mom_proj(TargetStates1el%b(nst1))
      l1_majconf = get_l_majconf(TargetStates1el%b(nst1))
      n1_majconf = get_n_majconf(TargetStates1el%b(nst1))
 
@@ -1754,7 +1754,7 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
         endif
            
    	    repnst2 = -1
-   	    m2_majconf = get_m_majconf(TargetStates1el%b(nst2))
+   	    m2_majconf = get_ang_mom_proj(TargetStates1el%b(nst2))
         l2_majconf = get_l_majconf(TargetStates1el%b(nst2))
         n2_majconf = get_n_majconf(TargetStates1el%b(nst2))
         
