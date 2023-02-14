@@ -2,7 +2,7 @@ EXEC=H3Plus
 MCCCOBJ=numbers.o input_parser.o MPI_module.o target_data.o input_data.o \
   Legendre.o grid_radial.o form.o sturmian_class.o ovlpste1me_module.o spheroidal_fn.o\
   state_class.o
-STATECLASSOBJ=vnc_module.o one_electron_func_module.o state_class_module.o natorb.o  vmat_exch_module.o rearrange12.o Horbitals.o one_electron_func.o one_electron_func_group.o one_electron_func_spheroidal.o H12.o  vnc.o  rearrange.o  osc.o osc12.o
+STATECLASSOBJ=vnc_module.o one_electron_func_module.o state_class_module.o natorb.o  vmat_exch_module.o rearrange12.o Horbitals.o one_electron_func.o one_electron_func_group.o one_electron_func_spheroidal.o H12.o  vnc_group.o  rearrange.o  osc.o osc12.o
 SCATOBJ=vnc_module.o one_electron_func_module.o state_class_module.o osc.o osc12.o vnc.o Horbitals.o rearrange12.o\
   natorb.o one_electron_func.o one_electron_func_spheroidal.o \
   vmat_exch_module.o H12.o pathpotmod.o Ps_structure.o ps_extra.o vmatrixmod.o channels.o pol_2el.o distpot.o vmat.o\
@@ -128,6 +128,10 @@ spheroidal_fn.o: spheroidal_fn.f90
 #Contains standalone subroutines
 vnc.o: vnc.f90
 	$(FC) $(MCFLAGS) -c vnc.f90
+
+#Contains standalone subroutines
+vnc_group.o: vnc_group.f90
+	$(FC) $(MCFLAGS) -c vnc_group.f90
 
 #File contains standalone functions
 Horbitals.o: Horbitals.f90

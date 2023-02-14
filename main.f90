@@ -29,11 +29,12 @@ program H3Plus
    use grid_radial
    use sturmian_class
    use state_class
-   use input_data !Defines global data_in variable
+   use input_data     !Defines global data_in variable
 	 use target_states  !Defines TargetStates global variable, TargetStates1el, etc.
 	 use one_electron_func_group
    use basismodule
    use numbers
+	 use vnc_module     !Stores nuclear potential vnc
    use ieee_arithmetic
    implicit none
 
@@ -42,28 +43,11 @@ program H3Plus
    
    integer:: nr  !number of radial grid points
    integer:: ii, jj, kk
-   real(dpf), dimension(:), allocatable:: w
-   real(dpf), dimension(:,:), allocatable:: z, wf !, B, H, KMat, 
-   complex(dpf), dimension(:,:), allocatable:: V, H, KMat, B, VPot, VPotTemp
-   logical, dimension(:), allocatable:: use_list
-   complex(dpf), dimension(:,:,:), allocatable:: VRadMatEl
-   !real(dpf), dimension(:,:), allocatable:: VReal
-   !complex(dpf), dimension(:,:), allocatable:: VTemp
-   real(dpf), dimension(:,:), allocatable:: realH, realB, realK, BMat
-   real(dpf), dimension(:,:,:), allocatable:: angular
-   integer, dimension(:), allocatable:: k_list, l_list, m_list, sturm_ind_list 
-   real(dpf), dimension(:), allocatable::  energies
-   integer:: num_func, l, m, k, rad_func
    integer:: n
-   real(dpf):: norm
    integer:: num_lambda
-   integer:: lblocksize
-   integer:: nstates, ier
    real(dpf):: alphal, mu
    logical:: sorted, found
-   real(dpf):: E1, E2, temp
    real(dpf), dimension(:), allocatable:: func
-   character(len=40)::filename
    !Variables used to track program runtime
    character(len=8):: date1, date2
    character(len=10):: time1, time2
@@ -72,10 +56,8 @@ program H3Plus
    integer:: hr1, hr2, sec1, sec2, mins1, mins2
    integer:: hrs, mins, secs
    !Variables to control file io
-   logical:: writeWaveFunc = .false.
-   integer:: i1, i2
-   real(dpf):: largest, smallest, largestZ
    integer:: si, sj
+	 integer:: harm
 
 
    !Intrinsic date and time subroutine
@@ -106,7 +88,34 @@ program H3Plus
       end if
    end if
 
+	 !------------------------------ Set up nuclear potential ------------------------------!
+	 nr = size(grid%gridr)
+   call construct_vnc_group(nr,grid%gridr,indata)
 
+   !Set up nuclear potential stored in vnc_module, use formula: SUM_l=0^l=L (2l+1) = (L+1)^2
+!	 nr = grid%nr
+!   num_lambda = (indata%lambdamax+1)**2   
+!   allocate(VPot(nr,num_lambda))
+!   VPot(:,:) = 0.0_dpf
+!   allocate(VPotTemp(nr, num_lambda))
+!   do ii = 1, 3
+!      call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
+!               indata%phi(ii), indata%charge(ii), indata)
+!      VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
+!   end do
+!   deallocate(VPotTemp)
+! 
+!   if (allocated(vnc)) then
+!			deallocate(vnc)
+!	 end if
+!	 allocate(vnc(nr, num_lambda))
+!	 vnc(:,:) = VPot(:,:)
+!	 !lamtop_vc = data_in%ltmax
+!	 lamtop_vc = num_lambda
+!	 harm = indata%harmop
+!	 data_in%harmop = harm
+!	 deallocate(VPot)
+!
    !---------------------Perform 2e Structure --------------------!
    !one_electron_func.f90: fills oneestates type before structure12
    !is called, specifically does so in construct_1el_basis_nr

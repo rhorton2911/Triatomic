@@ -128,6 +128,9 @@ module input_data
      logical :: print_halfk
      logical :: print_ionisation
 
+		 !Spherical harmonic options
+		 integer:: harmop
+
   end type input
 
 
@@ -589,6 +592,7 @@ contains
                     self%Zasym = 1
                     self%N_core_el = 0
                     self%good_m = .false. 
+										self%good_parity = .false.
                   case default
                     call invalid_argument(label, block, self%target)
                     error stop

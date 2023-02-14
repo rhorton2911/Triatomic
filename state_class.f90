@@ -1215,6 +1215,12 @@ contains
   !
   !
 
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!Subroutine: calc_spectro_factors_group
+	!Purpose: calculates the spectroscopic factors for a set of states,
+	!         which are used to assign a principal klm to a given electronic
+	!         state.
+	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!	
   subroutine calc_spectro_factors_group(self, bst, labot,latop, sturm_ind_list, m_list)
     !
     ! Calculates the spectroscopic factors of each state for each subset of basis functions
@@ -1239,22 +1245,35 @@ contains
     integer :: stateNum, n,l,m,par, nFunc, i,j
     integer, dimension(:), allocatable :: naVec
     real(dpf) :: energy, CI
-    real(dpf), dimension(0:latop) :: spectroVec
+    !real(dpf), dimension(0:latop) :: spectroVec
+    real(dpf), dimension(:), allocatable :: spectroVec	!Will have dimension (latop +1)^2
     real(dpf), dimension(:), allocatable :: sumVec
     real(dpf), dimension(:,:), allocatable :: spectroMat
 
 		integer, dimension(:):: sturm_ind_list   !length of nam=num_func
 		integer, dimension(:):: m_list   !length of nam=num_func
+		integer:: lPrev, mPrev, specInd
+		integer:: lind, mind, lmind, lSearch, mSearch, maxInd
 
 
     ! Set up the file.
     open(10, file='states.core_parts')
-    write(10,'(A)',advance='no') '#state n   l   m  par  label  Energy    S(l)   sum(S)'
+    write(10,'(A)',advance='no') '#state n   l   m  par  label  Energy    S(lm)   sum(S)'
     do i = labot, min(latop,9)
-       write(10,'(3X,A,I1,A)',advance='no') 'S(', i, ') '
+			 do j = -i, -1
+          write(10,'(3X,A,I1,A,I2,A)',advance='no') 'S(', i,',', j, ') '
+			 end do
+			 do j = 0, i
+          write(10,'(3X,A,I1,A,I1,A)',advance='no') 'S(', i,',', j, ') '
+			 end do
     enddo
     do i = 10, latop
-       write(10,'(3X,A,I2,A)',advance='no') 'S(', i, ')'
+			 do j = -i, -1
+          write(10,'(3X,A,I2,A,I3,A)',advance='no') 'S(', i,',', j, ')'
+		   end do
+			 do j = 0, i
+          write(10,'(3X,A,I2,A,I2,A)',advance='no') 'S(', i,',', j, ')'
+		   end do
     enddo
     write(10,*)
 
@@ -1280,22 +1299,60 @@ contains
 				  end do
 			 end do
 
+			 !Spectrofactor_lm = sum_{i,j st li=lj=l mi=mj=m} c_i c_j S_ij
        do i = 1, nFunc
           CI = get_CI(stateObj,i)
           spectroMat(i,:) = CI * spectroMat(i,:)
           spectroMat(:,i) = CI * spectroMat(:,i)
        end do
 
+			 !sum_{l=0^L} (2l+1) = (L+1)^2   = number of lm pairs
+			 !Spectrovec now loops over lm, so: 1=(0,0), 2=(1,-1), 3=(1,0), 4=(1,1), 5=(2,-2), etc.
+			 allocate(spectroVec((latop+1)**2))
        spectroVec(:) = 0d0
        sumVec = sum( spectroMat(:,:), 1 )
+			 specInd = 0
+			 lPrev = -1
+			 mPrev = -1000
        do i = 1, nFunc
           l = get_ang_mom( bst%b(sturm_ind_list(naVec(i))) )
-          spectroVec(l) = spectroVec(l) + sumVec(i)
-       end do
+					m = m_list(naVec(i))
+					if (l .ne. lPrev) then
+			       specInd = specInd + 1
+						 lPrev = l
+						 mPrev = m
+				  else
+						 if (m .ne. mPrev) then
+						    specInd = specInd + 1
+								mPrev = m
+						 end if
+				  end if
 
-       l = maxloc(spectroVec, 1) - 1   ! Largest spectroscopic factor.
+          spectroVec(specInd) = spectroVec(specInd) + sumVec(i)
+       end do
+ 
+       !l = maxloc(spectroVec, 1) - 1   ! Largest spectroscopic factor.
+       maxInd = maxloc(spectroVec, 1)    ! Largest spectroscopic factor.
+			 !Get lm value corresponding to this index 
+       lmind = 1
+			 lSearch = 0
+			 mSearch = 0
+			 do lind = 0, latop
+					do mind = -lind, lind
+						 if (lmind .eq. maxInd) then
+								cycle
+						 end if
+						 lSearch = lind
+						 mSearch = mind
+						 lmind = lmind + 1
+				  end do
+			 end do
+			 l = lSearch
+			 m = mSearch 
+
        n = l + 1   ! Ensures n is greater than l.
        stateObj%l = l   ! Assigns a value of l to the state.
+			 stateObj%M = m   ! Assigns a value of m to the state.
 
        do i = 1, stateNum-1   ! Search through previous states to generate n.
           stateObj2 => self%b(i)
@@ -1304,10 +1361,15 @@ contains
        stateObj%n = n
        !Liam commented below so inum retains definition of index within target symmetry
        !stateObj%inum = n - l ! Mark addition inum = k of Laguerre function 
-       stateObj%label = make_label_1e(n,l,m)
+			 if (data_in%good_m) then
+          stateObj%label = make_label_1e(n,l,m)
+			 else
+					stateObj%label = "   -   "
+			 end if
 
-       write(10,'(5I4,A7,F10.5,99F8.4)') stateNum, n,l,m,par, stateObj%label, energy, spectroVec(l), sum(spectroVec), spectroVec
-       deallocate(naVec, spectroMat, sumVec)
+       !write(10,'(5I4,A7,F10.5,99F8.4)') stateNum, n,l,m,par, stateObj%label, energy, spectroVec(l), sum(spectroVec), spectroVec
+       write(10,'(5I4,A7,F10.5,99F9.5)') stateNum, n,l,m,par, stateObj%label, energy, spectroVec(maxInd), sum(spectroVec), spectroVec
+       deallocate(naVec, spectroMat, sumVec, spectroVec)
 
     enddo ! stateNum
 
@@ -1946,6 +2008,124 @@ contains
     ovlp_st = tmpsum
     
   end function ovlp_st
+
+
+!Function: ovlp_st_group
+!Purpose: calculates the overlap of two states expanded in a basis with sturmian parts in bst
+!         this version allows states to have different m values in their expansion. Stored in
+!         m_list_nr, index of radial functions in basis stored in sturm_ind_list
+!!$  state_l,state_r  are one-electron target states !>> to do make it work with two-electron states too
+  function ovlp_st_group(state_l,state_r,bst, m_list_nr, sturm_ind_list)
+
+    use sturmian_class
+    use ovlpste1me
+    use input_data
+
+    implicit none
+
+    real(dpf):: ovlp_st_group
+
+    type(state), intent(in):: state_l, state_r
+    type(basis_sturmian_nr), intent(in) :: bst
+
+    real(dpf), dimension(:,:), pointer:: ortint
+    real(dpf):: tmp_l, tmp_r, tmpsum, ovlpsp1, ovlpsp2
+    integer:: i, j, m, n, ni, nm,  n1l, n2l, n1r, n2r, li, lm
+
+		integer, dimension(:):: m_list_nr, sturm_ind_list
+		integer:: m1, m2  !m values in expansion
+		integer:: indi, indj
+    
+    ovlp_st_group = 0d0
+
+
+    if(nint(2*state_l%m) .ne. nint(2*state_r%m)) then
+!       print*, 'm: l:', state_l%m
+!       print*, '   r:', state_r%m
+       return
+    endif
+    if(data_in%good_parity .and. (state_l%parity .ne. state_r%parity)) then
+!       print*, 'par: l:',  state_l%parity
+!       print*, '     r:',  state_r%parity
+       return
+    endif
+    if(nint(2*state_l%spin) .ne. nint(2*state_r%spin)) then
+!       print*, 'spin: l:', state_l%spin
+!       print*, '      r:', state_r%spin
+       return
+    endif
+
+    if( (state_r%hlike.and..not.state_l%hlike) .or. (.not.state_r%hlike.and.state_l%hlike) ) then
+       print*,'state_class.f90:  ovlp_st(): state_r%hlike .ne. statel%hlike'
+       print*,'stop'
+       stop
+    endif
+
+!    if(state_r%hlike) then
+       ortint => bst%ortint
+!    endif
+
+
+    tmpsum = 0d0
+
+    if(state_r%hlike) then ! one-electron states
+        do i=1,state_l%nam
+          indi = state_l%na(i)  !Index to sturmian functions resolved in klm 
+          ni = sturm_ind_list(indi)  !phi_{kl} for given index
+					m1 = m_list_nr(indi)
+
+!         print*, 'ni=', ni
+          li = get_ang_mom(bst%b(ni))  
+          tmp_l = get_CI(state_l,i)
+          do m=1,state_r%nam
+             indj = state_r%na(m)  ! index to a Sturmian type function resolved in klm 
+						 nm = sturm_ind_list(indj)
+						 m2 = m_list_nr(indj)
+
+!            print*, 'nm=', nm
+             lm = get_ang_mom(bst%b(nm))
+             if ((data_in%calculation_type == 0 .or. data_in%calculation_type == 1).and. li.ne.lm) cycle   ! Spherical l'=l.
+						 if ((.not. data_in%good_m) .and. (m1 .ne. m2)) cycle   !different m orthogonal
+             ovlpsp1 = ortint(ni,nm)
+             if(ovlpsp1 .eq. 0d0) cycle             
+             tmp_r = get_CI(state_r,m)
+             tmpsum = tmpsum + tmp_l * tmp_r * ovlpsp1
+          enddo
+       enddo
+    else  ! two-electron states
+			 if (.not. data_in%good_m) then
+					print*, "ERROR: ovlp_st_group not yet implemented for 2e states in H3 mode"
+					stop
+			 end if
+  
+       do i=1,state_l%nam
+          n1l = state_l%na(i)
+          n2l = state_l%nb(i)
+          tmp_l = get_CI(state_l,i)
+          do j=1,state_r%nam
+             n1r = state_r%na(j)
+             n2r = state_r%nb(j)
+             tmp_r = get_CI(state_r,j)
+             
+             tmpsum = tmpsum + ortint(n1l,n1r)*ortint(n2l,n2r)*tmp_l*tmp_r
+             !    tmpsum = tmpsum + ovlpst(n1l,n1r)*ovlpst(n2l,n2r)*tmp_l*tmp_r
+             !  print'(">>>",4E15.6)', ovlpst(n1l,n1r),ovlpst(n2l,n2r),tmp_l,tmp_r
+!             print'(2i3,2(2i5,F15.5))', i,j, n1l, n1r,ortint(n1l,n1r), n2l, n2r,ortint(n2l,n2r)
+             
+          enddo
+       enddo
+       
+    endif
+    ovlp_st_group = tmpsum
+    
+  end function ovlp_st_group
+
+
+
+
+
+
+
 !
 !!$  this is a function that calculate matrix element for one-electron Hamiltonian (H2+)
 !!$  state_l,state_r  are one-electron target states

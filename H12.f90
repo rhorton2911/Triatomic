@@ -904,7 +904,8 @@ end subroutine structure12
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !Subroutine: structure12group
 !Purpose: custom version of the structure12 subroutine for use in H3+ mode.
-!         Creates and diagonalises 2e hamiltonian for non-linear molecule
+!         Creates and diagonalises 2e hamiltonian for non-linear molecule,
+!         using the hybrid basis produced in construct_1el_basis_nr_group
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 subroutine structure12group(basis,oneestates,num_states,indata)
     use numbers
@@ -913,6 +914,8 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     use sturmian_class  
     use state_class     !states data type
     use target_states   !Contains TargetStates2el, state_class_module.f90
+		use ovlpste1me      !Contains overlap matrix of hybrid basis 
+		use one_electron_func    !Contains e1me, 1e matrix elements in hybrid basis, bst_nr
     use target_states   !Contains global variables for storing 1 and 2e target states
     use MPI_module      !Contains myid global variable
     implicit none
@@ -932,7 +935,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     integer:: par
     real(dpf):: mval
     integer, dimension(:), allocatable:: phase
-    integer:: mode, basis_type
+    integer:: mode     ! basis_type
     type(state),pointer :: tempstate
     !repo1, repo2 replace mo1, mo2 as m proj goes to group irrep in
     !non-linear case
@@ -960,6 +963,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     integer:: bfind 
     real*8:: tmpCI2
     type(sturmian_nr), pointer:: p2 
+		integer:: Nmax1el
 			
     !do ii = 1, oneestates%Nmax
     !   print*, oneestates%b(ii)%energy
@@ -978,7 +982,6 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     
     !l12max = data_in%l12max
  
-
     maxstates=0 
     do mode = 0, 1  !mode=0 (count states), mode=1 (diagonisalise H12)
        if (mode .eq. 1) then
@@ -1075,8 +1078,10 @@ subroutine structure12group(basis,oneestates,num_states,indata)
                 repnsp1p = repo1(ncp) 
                 repnsp2p = repo2(ncp) 
 
-                call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
-                !call H12me_st_group_nonortog(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+                !call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+								Nmax1el = oneestates%Nmax
+                !call H12me_st_group_notortog(is, indata, oneestates, Nmax1el,e1me,ovlpst,basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+                call H12me_st_group_notortog(is, indata, oneestates, Nmax1el,e1me,ovlpst,bst_nr, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
 
                 H(nc, ncp) = Helement
                 H(ncp, nc) = Helement
@@ -1098,7 +1103,6 @@ subroutine structure12group(basis,oneestates,num_states,indata)
              !   end do
              !   close(90)
              !end if 
-
 
              !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
              allocate(work(1))
@@ -2627,11 +2631,11 @@ end subroutine H12me_st
 !$**************************************************************************************************
 !$$ Subroutine: H12me_st_group
 !$$ Purpose:  two-electron configurations are made from one-electron target states, 
-!$$   This subroutine is to calculate matrix elements of H for H_2 molecule for 4 one-electron target states
-!$$   with given stymmetry group representation as a label
+!$$   This subroutine is to calculate matrix elements of H for H_3^+ molecule for 4 one-electron target states
+!$$   with given symmetry group representation as a label
 !$$   antisymmetric configurations 
 
-subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2pi,resultH,resultb)
+subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2p,resultH,resultb)
   
   use basismodule 
   use sturmian_class
@@ -2646,7 +2650,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
   type(basis_state), intent(in):: TargetStates1el
   type(basis_sturmian_nr), intent(in):: bst
   integer, intent(in):: nst1,nst2,nst1p,nst2p
-  integer, intent(in):: repnsp1,repnsp2,repnsp1p,repnsp2pi   !Group irreps of the states
+  integer, intent(in):: repnsp1,repnsp2,repnsp1p,repnsp2p   !Group irreps of the states
   real*8, intent(out):: resultH,resultb
 
   type(sturmian_nr), pointer:: p1, p2, p1p, p2p
@@ -2779,11 +2783,11 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	 cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
 	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
          Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
 	       2*indata%R(ii)*indata%R(jj)*cosij)
-	 !Account for degenerate case where nuclei coincide
+	       !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
             tmp = tmp + (dble(indata%charge(ii)*indata%charge(jj))/Rij) * resultb
          end if
@@ -2804,6 +2808,230 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 
   return
 end subroutine H12me_st_group
+
+
+
+!$**************************************************************************************************
+!$$ Subroutine: H12me_st_group_notortog
+!$$ Purpose:  two-electron configurations are made from one-electron target states, 
+!$$   This subroutine is to calculate matrix elements of H for H_3^+ molecule for 4 one-electron target states
+!$$   with given symmetry group representation as a label
+!$$   antisymmetric configurations 
+!$$
+!$$   Uses a mixture of laguerre function with large alpha and 1e molecular orbitals to correctly desribe
+!$$   excited states and improve convergence.
+subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2p,resultH,resultb)
+  
+  use basismodule 
+  use sturmian_class
+  use state_class
+  use MPI_module
+  use input_data
+
+  implicit none
+
+  integer, intent(in):: is
+  type(smallinput):: indata
+  type(basis_state), intent(in):: TargetStates1el
+	integer:: Nmax1el
+	real*8, dimension(Nmax1el,Nmax1el):: e1me, ovlpst
+  type(basis_sturmian_nr), intent(in):: bst
+  integer, intent(in):: nst1,nst2,nst1p,nst2p
+  integer, intent(in):: repnsp1,repnsp2,repnsp1p,repnsp2p   !Group irreps of the states
+  real*8, intent(out):: resultH,resultb
+
+  type(sturmian_nr), pointer:: p1, p2, p1p, p2p
+  integer:: nsp1,nsp2,nsp1p,nsp2p, i1,i2,i1p,i2p
+  integer:: mnst1,mnst2,mnst1p,mnst2p
+  real*8:: tmp, tmpCI1, tmpCI1p, tmpCI2, tmpCI2p, ttt, result, oneelME, twoelME
+  integer:: i1max, i2max, i1pmax, i2pmax
+  integer:: ii, jj
+  real*8:: Rij, cosij
+  
+  resultH = 0d0
+  resultb = 0d0
+
+  i1max = get_nam(TargetStates1el%b(nst1))
+  i2max = get_nam(TargetStates1el%b(nst2))
+  i1pmax = get_nam(TargetStates1el%b(nst1p))
+  i2pmax = get_nam(TargetStates1el%b(nst2p))
+!  if (myid==0) print*, 'i1max=', i1max
+!  if (myid==0) print*, 'CI=', get_CI(TargetStates1el%b(nst1),1)
+!  if (myid==0) print*, 'nst1 =',  get_na(TargetStates1el%b(nst1),1,1)
+
+!!$  deal with one-electron ME: sum of two terms H_1*S_2 + H_2*S_1
+
+  oneelME = 0d0
+  
+  if(nst1 .eq. nst1p .and. nst2 .eq. nst2p) then
+
+     !resultb = 1d0
+     !oneelME = get_energy_st(TargetStates1el%b(nst1)) + get_energy_st(TargetStates1el%b(nst2))
+
+     resultb = ovlpst(nst1,nst1p) * ovlpst(nst2,nst2p)
+
+     oneelme =   e1me(nst1,nst1p) * ovlpst(nst2,nst2p)
+
+     oneelme =  oneelme + e1me(nst2,nst2p) * ovlpst(nst1,nst1p)
+
+  endif
+
+  if((nst1 .eq. nst2) .and. (nst1p .ne. nst2p)) then
+     ! <aa | ..| b1 b2>
+     resultb = sqrt(2d0) * resultb 
+     oneelme = sqrt(2d0) * oneelme
+  elseif((nst1 .ne. nst2) .and. (nst1p .eq. nst2p)) then
+     ! <a1a2 | ..| bb>
+     resultb = sqrt(2d0) * resultb 
+     oneelme = sqrt(2d0) * oneelme
+  elseif((nst1 .eq. nst2) .and. (nst1p .eq. nst2p)) then
+     ! orbitals are the same  <aa|...|bb>
+     ! all is already done...  
+  else
+     !<a1 a2 | ..| b1 b2>
+     if(repnsp1 .eq. repnsp2p .and. repnsp2 .eq. repnsp1p) then
+
+        resultb = resultb + (-1)**(is) * ovlpst(nst1,nst2p) * ovlpst(nst2,nst1p)
+!!$     resultb = resultb + (-1)**(is) * ovlp_st(TargetStates1el%b(nst1),TargetStates1el%b(nst2p)) * ovlp_st(TargetStates1el%b(nst2),TargetStates1el%b(nst1p))
+        
+        oneelme =  oneelme + (-1)**(is) * e1me(nst1,nst2p) * ovlpst(nst2,nst1p) ! ovlp_st(TargetStates1el%b(nst2),TargetStates1el%b(nst1p)) *  H1el_st(TargetStates1el%b(nst1),TargetStates1el%b(nst2p))
+        
+        oneelme =  oneelme + (-1)**(is) * e1me(nst2,nst1p) *  ovlpst(nst1,nst2p) ! ovlp_st(TargetStates1el%b(nst1),TargetStates1el%b(nst2p)) *  H1el_st(TargetStates1el%b(nst2),TargetStates1el%b(nst1p))
+
+     endif
+  endif
+
+!!$   two-electron operator  matrix
+  twoelME = 0d0
+
+  ttt = 0d0
+  do i1=1,i1max
+     nsp1 = get_na(TargetStates1el%b(nst1),i1,1)
+     tmpCI1 = get_CI(TargetStates1el%b(nst1),i1)
+     p1 => bst%b(nsp1)
+
+     do i2=1,i2max
+        nsp2 = get_na(TargetStates1el%b(nst2),i2,1)
+        tmpCI2 = get_CI(TargetStates1el%b(nst2),i2)
+        p2 => bst%b(nsp2)
+        
+        do i1p=1,i1pmax
+           nsp1p = get_na(TargetStates1el%b(nst1p),i1p,1)
+           tmpCI1p = get_CI(TargetStates1el%b(nst1p),i1p)     
+           p1p => bst%b(nsp1p)
+           do i2p=1,i2pmax
+              nsp2p = get_na(TargetStates1el%b(nst2p),i2p,1)
+              tmpCI2p = get_CI(TargetStates1el%b(nst2p),i2p)
+              p2p => bst%b(nsp2p)
+
+              tmp = tmpCI1 * tmpCI1p * tmpCI2 * tmpCI2p
+
+	            mnst1 = get_ang_mom_proj_nr(p1)
+	            mnst2 = get_ang_mom_proj_nr(p2)
+	            mnst2p = get_ang_mom_proj_nr(p2p)
+	            mnst1p = get_ang_mom_proj_nr(p1p)
+
+              call V12me_group(indata,p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
+              
+              ttt = ttt +  tmp * result
+
+           enddo
+        enddo
+     enddo
+  enddo
+
+  twoelME = ttt
+
+  ! if (myid==0) print*, 'result', result
+  if((nst1 .eq. nst2) .and. (nst1p .ne. nst2p)) then
+     ! <aa | ..| b1 b2>
+     twoelme  =  sqrt(2d0) * twoelme 
+  elseif((nst1 .ne. nst2) .and. (nst1p .eq. nst2p)) then
+     ! <a1a2 | ..| bb>
+     twoelme  =  sqrt(2d0) * twoelme 
+  elseif((nst1 .eq. nst2) .and. (nst1p .eq. nst2p)) then
+     ! orbitals are the same  <aa|...|bb>
+     ! all is already done...  
+  else
+     !<a1 a2 | ..| b1 b2>
+     ttt = 0d0
+     do i1=1,i1max
+        nsp1 = get_na(TargetStates1el%b(nst1),i1,1)
+        tmpCI1 = get_CI(TargetStates1el%b(nst1),i1)
+        p1 => bst%b(nsp1)
+        do i2=1,i2max
+           nsp2 = get_na(TargetStates1el%b(nst2),i2,1)
+           tmpCI2 = get_CI(TargetStates1el%b(nst2),i2)
+           p2 => bst%b(nsp2)
+           
+           do i1p=1,i1pmax
+              nsp1p = get_na(TargetStates1el%b(nst1p),i1p,1)
+              tmpCI1p = get_CI(TargetStates1el%b(nst1p),i1p)
+              p1p => bst%b(nsp1p)     
+              do i2p=1,i2pmax
+                 nsp2p = get_na(TargetStates1el%b(nst2p),i2p,1)
+                 tmpCI2p = get_CI(TargetStates1el%b(nst2p),i2p)
+                 p2p => bst%b(nsp2p)
+                 
+                 tmp = tmpCI1 * tmpCI1p * tmpCI2 * tmpCI2p
+
+                 mnst1 = get_ang_mom_proj_nr(p1)
+                 mnst2 = get_ang_mom_proj_nr(p2)
+                 mnst2p = get_ang_mom_proj_nr(p2p)
+                 mnst1p = get_ang_mom_proj_nr(p1p)
+
+                 
+                 !Calculates V12 matrix elements between functions with well defined lm
+                 call V12me_group(indata,p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
+                 
+                 ttt = ttt + tmp * result
+                 
+              enddo
+           enddo
+        enddo
+     enddo
+     twoelme  = twoelme + (-1)**(is) * ttt
+  endif
+  
+!!$ Nuclei repulsion term for triatomic molecules (really more general):
+!!$ Note: H_3+ Hamiltonian H = H3++ + H3++ + V12 + Hnuclei-nuclei
+!!$ Where H3++_no is the H3++ hamiltonian without nuclear-nuclear interaction
+   tmp = 0d0
+   do ii=1, 3
+      do jj = ii+1, 3
+         !Use law of cosines to compute distance between nuclei
+	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
+	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
+         Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
+	       2*indata%R(ii)*indata%R(jj)*cosij)
+	       !Account for degenerate case where nuclei coincide
+         if (Rij .gt. 0.0_dpf) then
+            tmp = tmp + (dble(indata%charge(ii)*indata%charge(jj))/Rij) * resultb
+         end if
+      end do
+   end do
+
+!Old comment kept for posterity.
+!!$ H2+ code has Znuc*Znuc/R. Need to compensate for the 2*Znuc*Znuc/R.
+!!$ Implemented a -Znuc*Znuc/R factor in H2 structure code.
+!  if( Rd .ne. 0) then
+!!     tmp = Znuc*Znuc/Rd  * resultb
+!     tmp = - Z1*Z2/Rd  * resultb
+!  endif
+
+  !H3++ code includes nuclear interaction, need to compensate 
+  !for 2*sum_ij z_i*z_j/R_ij introduced by using two sets of 1e states, subtract tmp
+  resultH = oneelme - tmp + twoelme
+
+  return
+end subroutine H12me_st_group_notortog
+
+
+
+
+
+
+
 
 
 !$**************************************************************************************************

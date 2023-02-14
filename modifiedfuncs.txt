@@ -8,6 +8,10 @@ config12_st_group - new
 getKMatM (sturmian.f90) - new
 construct_st - modified
 calc_spectro_factors_group - new
+H1el_Lag (Horbitals.f90) - modified
+VLambdaR_ME_group (Horbitals.f90) - new
+input_data.f90: added harmop option to data_in
+vnc_group.f90: modified versions of the subroutines in vnc.f90
 
 
 

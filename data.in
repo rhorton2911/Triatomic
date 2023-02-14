@@ -10,7 +10,7 @@ SCATTERING_SYSTEM
   PROJECTILE                : ELECTRON                #Projectile name (ELECTRON / POSITRON)
   ENERGY                    : 21.0 eV                 #Projectile incident energy (can specify eV or Hartree)
   M_TOT                     : 0, 6                    #Total scattering system M. Specify single value or range Mstart, Mstop
-  PARITY                    : -1, 1                   # " " parity. Specify single value or range Pstart, Pstop. A value of 0 means parity it not used
+  PARITY                    : 0    #-1, 1                   # " " parity. Specify single value or range Pstart, Pstop. A value of 0 means parity it not used
   NUMBER_ENTRANCE_STATES    : 1                       #Number of initial target states for scattering calculation
   PROJECTILE_LMAX           : 6                       #Maximum l of the projectile partial-wave expansion
 END
@@ -38,8 +38,8 @@ OUTPUT
 END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
-  LMAX                      : 2                       #Max orbital angular momentum, l=0,...,LMAX
-  BASIS_SIZE                : 10-l                    #Number of basis functions per l
+  LMAX                      : 3                       #Max orbital angular momentum, l=0,...,LMAX
+  BASIS_SIZE                : 20  #10-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
 ONE_ELECTRON_STATES                                   #Choose which one-electron states to keep
@@ -50,11 +50,11 @@ END                                                   #If the system does not ha
 
 SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for two-electron diagonalisation (or maybe second one-electron diagonalisation) 
   USE_SECOND_BASIS          : ON                      #If OFF then the one-electron states kept from the first diagonalisation form the basis for the second diagonalisation
-  LMAX                      : 1                       #Max l of Laguerre functions
-  BASIS_SIZE                : 50-l                    #Number of basis functions per l
-  EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
+  LMAX                      : 3                       #Max l of Laguerre functions
+  BASIS_SIZE                : 20   #50-l                    #Number of basis functions per l
+  EXPONENTIAL_FALLOFF       : 1.4      #0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
   
-  INSERT_ONE_EL_STATES      : 5                       #Number of one-electron states from first diagonalisation to insert in second basis
+  INSERT_ONE_EL_STATES      : 200                       #Number of one-electron states from first diagonalisation to insert in second basis
 
   INSERT_NATURAL_ORBITALS   : 0                       #Number of natural orbitals to insert in second basis (specify a number or "ALL")
   ONLY_NATURAL_ORBITALS     : OFF                     #Perform second diagonalisation only using natural orbitals (ON or OFF)
@@ -111,7 +111,7 @@ KGRID
 END
 
 CALCULATION_OPTIONS
-  LTMAX                     : 20                      #Maximum l in expansion of nuclear potential
+  LTMAX                     : 12                      #Maximum l in expansion of nuclear potential
   BORN_COMPLETION           : ON                      #Calculate analytical Born cross sections and use analytical Born completion (ABC)
   THETA                     : 0.0                     #Value of theta for the "theta trick" to resolve non-uniqueness. THETA=0 means it will not be used
   EXCHANGE                  : ON                      #Include (ON) or don't include (OFF) exchange

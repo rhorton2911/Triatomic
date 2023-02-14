@@ -4,10 +4,11 @@
 !!$
 !!$ vdcore(r) = -(N_core_el)/r + Vcore_electrons(r) + pol(r)
 
-  subroutine construct_vnc(nr, gridr)
+  subroutine construct_vnc_group(nr, gridr, indata)
     use input_data
     use vnc_module
     use MPI_module
+		use basismodule
     implicit none
 
     integer, intent(in):: nr
@@ -21,6 +22,10 @@
     real*8, dimension(0:20):: corep, r0, exchlocal
     real*8:: Z1, Z2, Zasym
     logical :: core
+
+		type(smallinput):: indata  !Contains nuclear coords for H3+
+		integer:: vncsize
+		integer:: vlim1, vlim2
 
     if(data_in%pseudo_pot) then
       data_in%Z1 = data_in%Z1 - data_in%N_core_el
@@ -39,19 +44,31 @@
     corep(:) = 0.0d0
     r0(:) = 2.0d0
 
+
     lamtop_vc = data_in%ltmax  ! change in future if required...
-    allocate(vnc(nr,0:lamtop_vc),minvnc(0:lamtop_vc),maxvnc(0:lamtop_vc))
+		if (data_in%good_m) then
+       allocate(vnc(nr,0:lamtop_vc),minvnc(0:lamtop_vc),maxvnc(0:lamtop_vc))
+			 vlim1 = 0
+			 vlim2 = lamtop_vc
+	  else 
+			 vncsize = (data_in%ltmax+1)**2   !now loops over (lam, mu)
+			 allocate(vnc(nr,vncsize),minvnc(vncsize),maxvnc(vncsize)) 
+			 vlim1 = 1
+			 vlim2 = vncsize
+	  end if
     vnc(:,:) = 0d0
 
     if(myid == 0 .and. data_in%good_parity) then
-      write(*,*) "Setting up nuclear potential: only even terms (good parity)"
-    elseif(myid == 0 .and. .not.data_in%good_parity) then
-      write(*,*) "Setting up nuclear potential: even and odd terms (no good parity)"
+       write(*,*) "Setting up nuclear potential: only even terms (good parity)"
+    elseif((myid == 0 .and. .not.data_in%good_parity) .and. data_in%good_m) then
+       write(*,*) "Setting up nuclear potential: even and odd terms (no good parity)"
+    elseif(myid == 0) then 
+       write(*,*) "Setting up nuclear potential: even and odd terms, with a loop over projection mu (no good parity or m)"
     endif
 
-    call  VLambdaR(nr,gridr, lamtop_vc, data_in%Rd, Z1, Z2, vnc,minvnc,maxvnc,lamtop_vc_set)
+    call  VLambdaMuR_group(nr,gridr,vlim1,vlim2,lamtop_vc, data_in%Rd, Z1, Z2, vnc,minvnc,maxvnc,lamtop_vc_set, indata)
    
-    if(data_in%N_core_el > 0 .and..not.data_in%pseudo_pot) then
+    if ((data_in%N_core_el > 0 .and..not.data_in%pseudo_pot) .and. (data_in%good_m)) then
       call make_vdcore
       if(ltop_vc > lamtop_vc) then
         if(myid==0)then
@@ -99,21 +116,26 @@
 !  enddo
 !  close(100)
 
-  end subroutine construct_vnc
+  end subroutine construct_vnc_group
  !------------------------------------------------------------------------------
 
-    subroutine VLambdaR(maxr,gridr, lambda_max, Rd, Z1_in, Z2_in, vlr,minvnc,maxvnc, lamtop_vc_set)
+    subroutine VLambdaMuR_group(maxr,gridr,vlim1,vlim2,lambda_max, Rd, Z1_in, Z2_in, vlr,minvnc,maxvnc, lamtop_vc_set, indata)
       use MPI_module
       use input_data
+			use basismodule
+			use grid_radial
       implicit none
+
+			type(smallinput):: indata  !Contains nuclear coordinates
       
       integer, intent(in):: maxr
       real*8, dimension(maxr),intent(in):: gridr
       integer, intent(in):: lambda_max 
       real*8, intent(in):: Rd
       real*8, intent(in):: Z1_in, Z2_in  
-      real*8, dimension(maxr,0:lambda_max), intent(out):: vlr 
-      integer, dimension(0:lambda_max), intent(out):: minvnc,maxvnc 
+			integer:: vlim1, vlim2
+      real*8, dimension(maxr,vlim1:vlim2), intent(out):: vlr 
+      integer, dimension(vlim1:vlim2), intent(out):: minvnc,maxvnc 
       integer, intent(out):: lamtop_vc_set
       logical :: good_parity
       real*8 :: Z1, Z2
@@ -121,6 +143,9 @@
       integer::  i, lambda, iRd, i1, i2, lambda_max_local, iRd1, iRd2
       real*8:: const1, r, Rdh, Zcoef, Rd1, Rd2, origin
       real*8, dimension(maxr):: temp
+
+			integer:: num_lambda, harm, ii, nr
+      complex*16, dimension(:,:), allocatable:: VPot, VPotTemp
 
       if(data_in%pseudo_pot .and. .false.) then
         Z1 = Z1_in - data_in%N_core_el
@@ -145,12 +170,12 @@
       Rd1 = Rd * origin
       Rd2 = Rd * (1.0d0 - origin)
       
-      if(Rd .eq. 0d0) then ! joint nuclear, spherically symmetric case, only lam=0 term
+      if ((Rd .eq. 0d0) .and. (data_in%good_m)) then ! joint nuclear, spherically symmetric case, only lam=0 term
          
          iRd = 1
          lambda_max_local = 0
 
-      else
+			else if (data_in%good_m) then
          do i = 1, maxr
             r = gridr(i)
             if(r .gt. Rdh) exit
@@ -171,67 +196,96 @@
 
       endif
 
-      do lambda = 0, lambda_max_local
+			if (data_in%good_m) then    !Diatomic molecule/atom, loop over lambda
+         do lambda = 0, lambda_max_local
 
-         if(good_parity .and. (-1)**lambda /= 1) cycle
+            if(good_parity .and. (-1)**lambda /= 1) cycle
 
-         Zcoef = Z1 + Z2*(-1)**lambda
+            Zcoef = Z1 + Z2*(-1)**lambda
 
-         temp(:) = 0d0
+            temp(:) = 0d0
 
-         if(origin == 0.5d0 .or. Rd == 0.0d0) then !simpler expansion when origin is at geometric centre
-         
-           do i = 1, iRd-1
-              r = gridr(i)
-              temp(i) = -Zcoef * (r**lambda/Rdh**(lambda + 1))
-           end do
-           do i = iRd, maxr
-              r = gridr(i)
-              temp(i) = -Zcoef * (Rdh**lambda/r**(lambda + 1))           
-           end do
+            if((origin == 0.5d0 .or. Rd == 0.0d0) .and. (data_in%good_m)) then !simpler expansion when origin is at geometric centre
+            
+               do i = 1, iRd-1
+                  r = gridr(i)
+                  temp(i) = -Zcoef * (r**lambda/Rdh**(lambda + 1))
+               end do
+               do i = iRd, maxr
+                  r = gridr(i)
+                  temp(i) = -Zcoef * (Rdh**lambda/r**(lambda + 1))           
+               end do
 
-         else !Liam added for arbitrary origin
-          
-           !Contribution from Z1:
-           do i = 1, iRd1-1
-              r = gridr(i)
-              temp(i) = -Z1 * (r**lambda/Rd1**(lambda + 1))
-           end do
-           do i = iRd1, maxr
-              r = gridr(i)
-              temp(i) = -Z1 * (Rd1**lambda/r**(lambda + 1))           
-           end do
+			   	 else if (data_in%good_m) then !Liam added for arbitrary origin
+             
+               !Contribution from Z1:
+               do i = 1, iRd1-1
+                  r = gridr(i)
+                  temp(i) = -Z1 * (r**lambda/Rd1**(lambda + 1))
+               end do
+               do i = iRd1, maxr
+                  r = gridr(i)
+                  temp(i) = -Z1 * (Rd1**lambda/r**(lambda + 1))           
+               end do
 
-           !Contribution from Z2:
-           do i = 1, iRd2-1
-              r = gridr(i)
-              temp(i) = temp(i) - (-1)**lambda * Z2 * (r**lambda/Rd2**(lambda + 1))
-           end do
-           do i = iRd2, maxr
-              r = gridr(i)
-              temp(i) = temp(i) - (-1)**lambda * Z2 * (Rd2**lambda/r**(lambda + 1))           
-           end do
+               !Contribution from Z2:
+               do i = 1, iRd2-1
+                  r = gridr(i)
+                  temp(i) = temp(i) - (-1)**lambda * Z2 * (r**lambda/Rd2**(lambda + 1))
+               end do
+               do i = iRd2, maxr
+                  r = gridr(i)
+                  temp(i) = temp(i) - (-1)**lambda * Z2 * (Rd2**lambda/r**(lambda + 1))           
+               end do
 
-         endif
+            endif
 
-         if(data_in%pseudo_pot .and. lambda <= 2) then
-           temp = temp + data_in%pseudo_pot_B(lambda) * exp(-data_in%pseudo_pot_Beta(lambda)*gridr**2)
-           if(data_in%corep > 0.0d0) then
-             if(lambda == 0) temp = temp - data_in%corep/(2.0d0*gridr**4)*(1.0d0-exp(-(gridr/data_in%r0)**2))**2 &
-                                    - data_in%corep/(2.0d0*data_in%Rd**4)
-             if(lambda == 1) temp = temp + data_in%corep/(gridr**2*data_in%Rd**2)*(1.0d0-exp(-(gridr/data_in%r0)**2))
-          endif
-         endif
+            if(data_in%pseudo_pot .and. lambda <= 2) then
+              temp = temp + data_in%pseudo_pot_B(lambda) * exp(-data_in%pseudo_pot_Beta(lambda)*gridr**2)
+              if(data_in%corep > 0.0d0) then
+                if(lambda == 0) temp = temp - data_in%corep/(2.0d0*gridr**4)*(1.0d0-exp(-(gridr/data_in%r0)**2))**2 &
+                                       - data_in%corep/(2.0d0*data_in%Rd**4)
+                if(lambda == 1) temp = temp + data_in%corep/(gridr**2*data_in%Rd**2)*(1.0d0-exp(-(gridr/data_in%r0)**2))
+             endif
+            endif
 
-         call minmaxi(temp,maxr,i1,i2)
-         vlr(i1:i2,lambda) = temp(i1:i2)
-         minvnc(lambda) = i1
-         maxvnc(lambda) = i2
-      end do !lambda
+            call minmaxi(temp,maxr,i1,i2)
+            vlr(i1:i2,lambda) = temp(i1:i2)
+            minvnc(lambda) = i1
+            maxvnc(lambda) = i2
+         end do !lambda
+	    else if (.not. data_in%good_m) then !H3+ mode
+				 !Subroutine loops over lambda, q
+         !Number of (lam,mu) pairs: use formula SUM_l=0^l=L (2l+1) = (L+1)^2 nr = grid%nr
+				 nr = size(gridr)
+         num_lambda = (lambda_max_local+1)**2   
+				 indata%lambdamax = lambda_max_local
+         allocate(VPot(nr,num_lambda))
+         VPot(:,:) = 0.0_dpf
+
+         allocate(VPotTemp(nr,num_lambda))
+         do ii = 1, 3
+            call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
+                     indata%phi(ii), indata%charge(ii), indata)
+            VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
+         end do
+         deallocate(VPotTemp)
+       
+				 do i = 1, num_lambda
+            call minmaxi(real(VPot(:,i)),maxr,i1,i2)
+            vlr(i1:i2,i) = real(VPot(i1:i2,i))
+            minvnc(i) = i1
+            maxvnc(i) = i2
+				 end do
+
+      	 harm = indata%harmop
+      	 data_in%harmop = harm
+      	 deallocate(VPot)
+			end if
 
       lamtop_vc_set = lambda_max_local
 
-    end subroutine VLambdaR
+    end subroutine VLambdaMuR_group
    
 !-----------------------------------------------------------------------------------------
 !!$  the potential has rank lam (up to max value lamtop_vc) and its projection=0

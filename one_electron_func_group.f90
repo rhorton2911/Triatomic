@@ -20,7 +20,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     use grid_radial
     use sturmian_class
     !use vnc_module
-    use one_electron_func
+    use one_electron_func  !Contains bst_nr variable
     use target_states    !TargetStates, TargetStates1el, TargetStates2el
 		use basismodule
     use ovlpste1me       !ovlpst, e1me
@@ -28,15 +28,13 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     use MPI_module       !myid
 
     implicit none
-
-
 !
     integer:: ii, jj, kk
     type(smallinput):: indata
 		type(basis_sturmian_nr):: basis !Formerly bst_data
 		!Indices for first laguerre basis
-    integer, dimension(:), allocatable:: sturm_ind_list 
-		integer, dimension(:), allocatable:: k_list, l_list, m_list
+    integer, dimension(:), allocatable:: sturm_ind_list_one
+		integer, dimension(:), allocatable:: k_list_one, l_list_one, m_list_one
 		integer:: num_func, rad_func
 		integer:: k,l,m
     real(dpf):: Rij, cosij
@@ -46,6 +44,13 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
 		integer, dimension(:), allocatable:: k_list_two, l_list_two, m_list_two
 		integer:: num_func_two, rad_func_two
 		integer:: basissize
+		!Indices for combined basis
+    integer, dimension(:), allocatable:: sturm_ind_list_nr
+		integer, dimension(:), allocatable:: k_list_nr, l_list_nr, m_list_nr
+		integer:: totfuncs
+
+		integer:: lagnmax, basissize_nr
+		integer:: hamlimmin, hamlimmax, maxL
 
     integer, intent(in):: Number_one_electron_func
     real*8, dimension(:,:), allocatable:: H, b, b2, CI
@@ -88,7 +93,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
        call construct(basis, data_in)
     end if
 
-		call countConfigs(basis, data_in, k_list, l_list, m_list, sturm_ind_list, num_func, rad_func)
+		call countConfigs(basis, data_in, k_list_one, l_list_one, m_list_one, sturm_ind_list_one, num_func, rad_func)
 
     !Create space for basis of Mo's
     call new_basis_st(TargetStates,num_func,hlike,basis_type)
@@ -116,13 +121,14 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     end if      
           
     !Perform one-electron structure calculation and store in TargetStates 
-    call one_electron_structure_group(TargetStates, basis, indata, num_func, sturm_ind_list, k_list, l_list, m_list)
+    call one_electron_structure_group(TargetStates, basis, indata, num_func, sturm_ind_list_one, k_list_one, l_list_one, m_list_one)
     call sort_by_energy_basis_st(TargetStates)
 
-    call calc_spectro_factors_group(TargetStates, basis, data_in%labot, data_in%latop, sturm_ind_list, m_list)
-    if (myid == 0) then
-       call print_energy_basis_st(TargetStates)
-    end if
+		!Spectro factors used to assign principal klm to a state, shown in state.core_parts
+    call calc_spectro_factors_group(TargetStates, basis, data_in%labot, data_in%latop, sturm_ind_list_one, m_list_one)
+    !if (myid == 0) then
+    !   call print_energy_basis_st(TargetStates)
+    !end if
 
     !Populate arary e1me to be used later in H12 diagonalization. Off diagonal calculated later.
     Nmax = basis_size_st(TargetStates)
@@ -151,12 +157,36 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     ! Calculates <Lfp|Lf> for e-H2 exchange matrix elements.
     ! rearrange.f90 will carry through rearrangement
     call combine_basis_nr(bst_nr,bst_MSC,basis,basis_type)
+
+		!Merge k_list, m_list, l_list, etc arrays for bst_nr
+		totfuncs = nBasis_MSC + nBasis_data
+		allocate(k_list_nr(totfuncs), l_list_nr(totfuncs), m_list_nr(totfuncs), sturm_ind_list_nr(totfuncs))
+
+		do ii = 1, nBasis_MSC
+			 k_list_nr(ii) = k_list_two(ii)
+			 l_list_nr(ii) = l_list_two(ii)
+			 m_list_nr(ii) = m_list_two(ii)
+			 sturm_ind_list_nr(ii) = sturm_ind_list_two(ii)
+	  end do
+		do ii = 1, nBasis_data
+			 jj = ii + nBasis_MSC
+			 k_list_nr(jj) = k_list_one(ii)
+			 l_list_nr(jj) = l_list_one(ii)
+			 m_list_nr(jj) = m_list_one(ii)
+			 !sturm_ind_list_nr(jj) = sturm_ind_list_one(ii) + basis%n
+			 sturm_ind_list_nr(jj) = sturm_ind_list_one(ii) + bst_MSC%n
+			 !print*, bst_MSC%n, sturm_ind_list_nr(jj), basis%n
+	  end do
+
     !max_latop = get_max_L(bst_nr) ! Largest l of laguerre basis
 		max_latop = 0      !Basis now includes m
 
-		basissize = num_func_two
+		!lag_ham1el_m stores matrix elements for combined basis
+		!lagnmax = basis_size(bst_nr)   !old size, with fixed m basis
+
+		lagnmax = totfuncs
     if (allocated(lag_ham1el_m)) deallocate(lag_ham1el_m)
-    allocate(lag_ham1el_m(basissize,basissize,-max_latop:max_latop))
+    allocate(lag_ham1el_m(totfuncs,totfuncs,-max_latop:max_latop))
     lag_ham1el_m(:,:,:) = 0d0
     
     if(allocated(e1me)) then
@@ -170,8 +200,8 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
        !lorb = get_ang_mom(bst_MSC%b(n))
        itmp = itmp + 1   ! (2*lorb + 1) !Basis now includes m
     end do
-
     nst_Basis_MSC = itmp   
+
     allocate(e1me(nst_Basis_MSC, nst_Basis_MSC))   !Stores 1e matrix elements
     allocate(ovlpst(nst_Basis_MSC, nst_Basis_MSC)) !Overlap one- or two-electron functions/states 
     e1me(:,:) = 0d0
@@ -179,30 +209,36 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     
 	  !Overwrite molecular orbitals with second laguerre basis and populate e1me and ovlpst
     !Hybrid calculates <Lfp|H|Lf> for e-H2 exchange matrix elements, which will carry through rearrangement      
-    call Hybrid_MSCbasis(bst_nr,TargetStates,nst_Basis_MSC,nBasis_MSC,lag_ham1el_m,basis_size(bst_nr),max_latop, indata, &
-			                   k_list_two, l_list_two, m_list_two, sturm_ind_list_two, num_func_two)
-   
-    print*, "STOP: around line 187: one_electron_func_group.f90" 
-		stop
+		!lagnmax = basis_size(bst_nr)   !old size, with fixed m basis
+    call Hybrid_MSCbasis(bst_nr,TargetStates,nst_Basis_MSC,nBasis_MSC,lag_ham1el_m,lagnmax,max_latop, indata, &
+			                   m_list_nr, sturm_ind_list_nr)
 
     !Liam added: save the original description of the one-electron states before rearrange is called - needed for natural orbitals
     call copy(TargetStates_unrearranged,TargetStates)
 
     !Destruct temporary bases    
-    !call destruct(bst_MSC)
-    !call destruct(bst_data)
+    call destruct(bst_MSC)
+    call destruct(basis)
 
-	 ! !Diagonalise 1e hamiltonian a second time in new sturmian basis, as CI coefficients are needed later
-   ! !Molecular states from second diagonalisation using second sturmian basis stored in TargetStates1el
-   ! call new_basis_st(TargetStates1el,num_func_two,hlike,basis_type)
+ 	  !!Diagonalise 1e hamiltonian a second time in new sturmian basis, as CI coefficients are needed later
+    !!Molecular states from second diagonalisation using second sturmian basis stored in TargetStates1el
+    !call new_basis_st(TargetStates1el,num_func_two,hlike,basis_type)
 
 	  !Save new states to TargetStates1el
     !call one_electron_structure_group(TargetStates1el, bst_MSC, indata, num_func_two, sturm_ind_list_two, k_list_two, l_list_two, m_list_two)
 
     !Call rearrange to represent 1e states in a one-electron basis with well defined (lm)
-    call rearrange(bst_nr,data_in%latop,TargetStates,.false.)
+		if (.not. data_in%good_m) then
+		   hamlimmin = 0
+		   hamlimmax = 0
+	  else
+			 hamlimmin = -data_in%latop
+			 hamlimmax = data_in%latop
+	  end if
+		maxL = get_max_L(bst_nr)
+		basissize_nr = totfuncs  !lag_ham1el_m 
 
-
+    call rearrange(bst_nr,maxL,TargetStates,.true.,basissize_nr,hamlimmin,hamlimmax,lag_ham1el_m, totfuncs, m_list_nr, sturm_ind_list_nr)
 
 !!$!------------------------------   
 
@@ -487,7 +523,8 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
 
    ! end if ! inc rearrange and MSC
 
-		deallocate(k_list,l_list,m_list,sturm_ind_list)
+		deallocate(k_list_one,l_list_one,m_list_one,sturm_ind_list_one)
+		deallocate(k_list_two,l_list_two,m_list_two,sturm_ind_list_two)
 
 
     
@@ -510,6 +547,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     use basismodule
     use numbers
     use ieee_arithmetic
+		use vnc_module
     implicit none
 		!Nuclear coordinates and additional options
     type(smallinput):: indata
@@ -531,9 +569,8 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     integer, dimension(:):: k_list, m_list, l_list, sturm_ind_list
     real(dpf), dimension(:), allocatable::  energies
     integer:: num_func     !, l, m, k, rad_func
+		integer:: num_lambda
 		real(dpf):: largest, largestZ
-		integer:: nstates, num_lambda
-		real(dpf):: Rij, cosij
     !Arrays for testing case
     integer, dimension(20):: testm, testl, testk
 		!For writing one electron states to TargetStates
@@ -555,22 +592,30 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     logical:: uselapack
 		!For calling rsg instead
 		integer:: i1, i2, ier
+		!For calculating nuclear-nuclear interaction
+		real(dpf):: Rij, cosij
+		!For writing energies to file
+		integer:: nstates
  
     nr = grid%nr
 		uselapack = .true.
+
+		!Now set up in main and stored in vnc_module's "vnc" variable
+    !!Set up expansion of potential, use formula: SUM_l=0^l=L (2l+1) = (L+1)^2
+    !num_lambda = (indata%lambdamax+1)**2
  
-    !Set up expansion of potential, use formula: SUM_l=0^l=L (2l+1) = (L+1)^2
-    num_lambda = (indata%lambdamax+1)**2
- 
-    allocate(VPot(nr,num_lambda))
-    VPot(:,:) = 0.0_dpf
-    allocate(VPotTemp(nr, num_lambda))
-    do ii = 1, 3
-       call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
- 	              indata%phi(ii), indata%charge(ii), indata)
-       VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
-    end do
-    deallocate(VPotTemp)
+    !allocate(VPot(nr,num_lambda))
+    !VPot(:,:) = 0.0_dpf
+    !allocate(VPotTemp(nr, num_lambda))
+    !do ii = 1, 3
+    !   call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
+ 	  !            indata%phi(ii), indata%charge(ii), indata)
+    !   VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
+    !end do
+    !deallocate(VPotTemp)
+
+    allocate(VPot(size(vnc(:,1)),size(vnc(1,:))))
+		VPot(:,:) = vnc(:,:)	
     
     allocate(H(num_func,num_func),V(num_func,num_func))
     H(:,:) = 0.0_dpf
@@ -653,6 +698,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     !end if
 
     print*, "GET ANGULAR MATRIX ELEMENTS"
+		num_lambda = (indata%lambdamax+1)**2
     !!Precalculate angular integrals appearing in V-matrix elements
     allocate(angular(num_lambda,num_func,num_func))
     call getAngular(num_func, angular, l_list, m_list, indata)
@@ -666,6 +712,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     !If real spherical harmonics are used, V matrix elements will have complex part zero.
     call getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata, use_list)
     print*, "V Matrix Elements Computed"
+
  
     deallocate(angular)
     deallocate(VRadMatEl)
@@ -674,7 +721,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     allocate(realH(num_func,num_func), realB(num_func,num_func))
     realH(:,:) = real(H(:,:))
     realB(:,:) = real(B(:,:)) 
- 
+
     !Nuclear-nuclear matrix elements, being multiples of the overlap matrix, do not affect electronic wave functions.
     print*, "ADD NUCLEAR INTERACTION ENERGY"
     do ii=1, 3
@@ -760,6 +807,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 
        deallocate(work)
     end if
+
 
     !Find largest expansion coefficient, ignore those below a certain
     !magnitude for stability/to get rid of underflow 
@@ -905,7 +953,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
  !         into a single basis for use in the two electron-structure calculation
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  subroutine Hybrid_MSCbasis(bst,TargetStates,Nmax,NBasisTwo,lag_ham1el_m,Lag_nmax,maxL,indata,&
-			                      k_list_two, l_list_two, m_list_two, sturm_ind_list_two, num_func_two)
+			                      m_list_nr, sturm_ind_list_nr)
     use input_data
 		use basismodule
     use sturmian_class
@@ -937,8 +985,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 
 		real*8:: cosij, Rij
 		integer:: ii, jj
-	  integer, dimension(:):: k_list_two, l_list_two, m_list_two, sturm_ind_list_two
-		integer:: num_func_two
+	  integer, dimension(:):: m_list_nr, sturm_ind_list_nr
 		integer:: mmin, mmax, ind
 
     if ( dataMSC%MSC_nconfig == 0 ) stop ! Should not be here!!!
@@ -958,7 +1005,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     call new_basis_st(IonStates,ABS(dataMSC%MSC_nconfig),hlike,basis_type)
     do n = 1, ABS(dataMSC%MSC_nconfig)
        !call copy_H2plus_st(IonStates%b(n),TargetStates%b(n),NBasis_F5)
-       call copy_H2plus_st(IonStates%b(n),TargetStates%b(n),NBasisTwo)
+       call copy_H2plus_st(IonStates%b(n),TargetStates%b(n),NBasisTwo)       !<<----- shifts na array of MO's by NBasisTwo to match new bst_nr basis 
     end do
     call destruct_basis_st(TargetStates)
 
@@ -995,7 +1042,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     
     ist = 0
     do ii=1, NBasisTwo
-			 n = sturm_ind_list_two(ii)
+			 n = sturm_ind_list_nr(ii)
        k = get_k(bst%b(n))
        lst = get_ang_mom(bst%b(n))
        ipar = (-1)**lst
@@ -1011,12 +1058,17 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 					if (data_in%good_m) then
 						 ma = ind
 				  else 
-						 ma = m_list_two(ii)
+						 ma = m_list_nr(ii)
 				  end if
           ist = ist + 1
           TargetStates%Nstates = ist
           mo(1) = ma
-          no(1) = n
+					if (data_in%good_m) then
+             no(1) = n
+				  else
+						 !No is index of basis function, not equal to sturmian index when m is included in basis
+						 no(1) = ii
+				  end if
     
           replaced_with_MO = .false.
           !Liam: added this to allow including an arbitrary number of MOs in the hybrid basis
@@ -1030,7 +1082,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
              labelMO = trim(adjustl(get_label(MolOrb)))
 
 					 	!Require sturmian replaced to be assigned carefully to avoid overcompleteness
-					 	!Scheme: replace only sturmians with orbitals with principal parts same as sturmians' (klm)
+					 	!Scheme: replace sturmians with orbitals with principal parts same as the sturmians' (klm)
              if((kMO == k .and. lMO == lst .and. mMO == ma)) then
                 call copy_st(TargetStates%b(ist),MolOrb)
                 replaced_with_MO = .true.
@@ -1063,9 +1115,13 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 
     end do 
 
+    !For testing
+		!do ii = 1, TargetStates%Nstates
+		!	 print*, TargetStates%b(ii)%n, TargetStates%b(ii)%l, TargetStates%b(ii)%M, TargetStates%b(ii)%label
+	  !end do
+		!stop
+
     call destruct_basis_st(IonStates)
-		print*, "STOPPING"
-		stop
 
     if ( ist /= Nmax ) then
        if (myid == 0) print*, 'one_electron_func.f90: Hybrid_MSCbasis(): ist .ne. Nmax :', ist, Nmax
@@ -1073,7 +1129,9 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     end if
 
     !!$ Calculates e1me and lag_ham1el_m
-    call Hybrid_H1el_st(Nmax,lag_ham1el_m, basis_size_nr(bst), get_max_L(bst))
+		!NOTE: must pass maxL argument in order for array indexing to be correct, maxL changes in H3+ mode
+    call Hybrid_H1el_st_group(Nmax,lag_ham1el_m, Lag_nmax, maxL, m_list_nr, sturm_ind_list_nr)
+    !call Hybrid_H1el_st_group(Nmax,lag_ham1el_m, Lag_nmax, get_max_L(bst), m_list_nr, sturm_ind_list_nr)
 
     do nst1 = 1, Nmax
        state1 => TargetStates%b(nst1)
@@ -1085,7 +1143,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 
           if ( (data_in%good_m .and. m1 /= m2) .OR. (data_in%good_parity .and. get_par(state1) /= get_par(state2)) ) cycle
 
-          ovlpst(nst1,nst2) = ovlp_st(state1,state2,bst)
+          ovlpst(nst1,nst2) = ovlp_st_group(state1,state2,bst,m_list_nr,sturm_ind_list_nr)
           ovlpst(nst2,nst1) =  ovlpst(nst1,nst2)
 
           !if (myid == 0) print*, nst1, nst2,  e1me(nst1,nst2), ovlpst(nst1,nst2)
@@ -1104,13 +1162,93 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 
   end subroutine Hybrid_MSCbasis
 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !Subroutine: Hybrid_H1el_st_group
+  !Purpose: calculates one-electron hamiltonian matrix elements and overlap
+  !         matrix in hybrid basis
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine Hybrid_H1el_st_group(Nmax,lag_ham1el_m,nmax_lag, max_latop, m_list_nr, sturm_ind_list_nr)
+  !!$ Calculates the one-electron molecular Hamiltonian matrix elements !$ lag_ham1el_m = <Lp|H|L> for Laguerre basis functions for particular m.
+  !!$ e1me = <np|H|n> for target states with underlying laguerre basis functions 
+  
+      use ovlpste1me
+      use target_states
+      use MPI_module
+      use state_class
+      use input_data
+  
+      implicit none
+      integer, intent(in):: Nmax ! Number of states      
+      integer, intent(in):: nmax_lag, max_latop ! Number of Lag function and max l
+      real*8, dimension(nmax_lag,nmax_lag,-max_latop:max_latop), intent(inout):: lag_ham1el_m
+  
+      type(state), pointer:: state_j, state_i
+      real*8:: Ci, Cj, Ham
+      real*8:: H1el_Lag
+      integer:: nsti, nstj, i, j, n, ni, nj             ! Indexes
+      integer:: ma
+
+			integer:: mi, mj, sturmi, sturmj
+			integer, dimension(:):: m_list_nr   !Combined m_list for bst_nr = (bst_MSC, bst_data)
+			integer, dimension(:):: sturm_ind_list_nr   !Combined m_list for bst_nr = (bst_MSC, bst_data)
+
+			integer:: ii
+
+      do nsti = 1, Nmax
+         state_i => TargetStates%b(nsti)
+         ma = state_i%m
+				 if (.not. data_in%good_m) then
+						ma = 0   !Basis contains m
+			   end if 
+  
+         do nstj = 1, nsti
+            state_j => TargetStates%b(nstj)
+  
+            Ham = 0d0
+  
+            if (data_in%good_m .and. (state_i%m /= state_j%m)) cycle
+            if (data_in%good_parity .and. (state_i%parity /= state_j%parity)) cycle
+            do i = 1, state_i%nam
+							 !If state is an MO, ni refers to combined bst_nr, while ci refers original basis with sturmians stored in bst_data
+               ni = state_i%na(i)
+               Ci = get_CI(state_i,i)
+  
+               do j = 1, state_j%nam
+                  nj = state_j%na(j)
+                  Cj = get_CI(state_j,j)
+
+									mi = m_list_nr(ni)
+									mj = m_list_nr(nj) 
+									sturmi = sturm_ind_list_nr(ni)
+									sturmj = sturm_ind_list_nr(nj)
+ 
+                  !One-electron Hamiltonian for each Laguerre function 
+                  lag_ham1el_m(ni,nj,ma) = H1el_Lag(sturmi,sturmj,mi,mj)
+                  lag_ham1el_m(nj,ni,ma) = lag_ham1el_m(ni,nj,ma)
+                  Ham = Ham + lag_ham1el_m(ni,nj,ma)  * Ci * Cj 
+               end do
+            end do
+  
+            e1me(nsti,nstj) = Ham
+            e1me(nstj,nsti) = e1me(nsti,nstj)
+  
+         end do ! nstj
+      end do ! nsti    
+
+
+  
+  end subroutine Hybrid_H1el_st_group
+
+
+
+
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	!Subroutine: countConfigs
 	!Purpose: counts the number of one-electon configurations for a given
 	!         sturmian basis resolved in (kl) only. Fills arrays l_list,
 	!         m_list, etc, with the (klm) indices of the fully (klm) resolved 
-	!         basis. Uses data_in values to determine number of functions per l
+	!         basis. Uses data_in_sturm values to determine number of functions per l
 	!Note: only called in non-linear molecule mode.
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	subroutine countConfigs(basis, data_in_sturm, k_list, l_list, m_list, sturm_ind_list, num_func, rad_func)
