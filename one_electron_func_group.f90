@@ -86,13 +86,8 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
 		!------------------------------------Set up first Laguerre basis and perform 1e diagonalisation------------------------------!
 
     !Initialise sturmian data types, requires input data type defined in the MCCC code.
-    if (indata%isoscop .eq. 0) then
-       call construct(basis, data_in)
-       !call construct_all_nr_m(basis,data_in)
-    else if (indata%isoscop .eq. 1) then
-       call construct(basis, data_in)
-    end if
 
+    call construct(basis, data_in)
 		call countConfigs(basis, data_in, k_list_one, l_list_one, m_list_one, sturm_ind_list_one, num_func, rad_func)
 
     !Create space for basis of Mo's
@@ -121,10 +116,15 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     end if      
           
     !Perform one-electron structure calculation and store in TargetStates 
+		print*, "1e STRUCTURE"
     call one_electron_structure_group(TargetStates, basis, indata, num_func, sturm_ind_list_one, k_list_one, l_list_one, m_list_one)
+
+		print*, "SORTING DONE"
     call sort_by_energy_basis_st(TargetStates)
 
+
 		!Spectro factors used to assign principal klm to a state, shown in state.core_parts
+		print*, "SPECTRO FACTORS"
     call calc_spectro_factors_group(TargetStates, basis, data_in%labot, data_in%latop, sturm_ind_list_one, m_list_one)
     !if (myid == 0) then
     !   call print_energy_basis_st(TargetStates)
@@ -156,6 +156,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     ! Combine both laguerre bases, store in bst_nr
     ! Calculates <Lfp|Lf> for e-H2 exchange matrix elements.
     ! rearrange.f90 will carry through rearrangement
+		print*, "COMBINE BASIS"
     call combine_basis_nr(bst_nr,bst_MSC,basis,basis_type)
 
 		!Merge k_list, m_list, l_list, etc arrays for bst_nr
@@ -210,6 +211,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
 	  !Overwrite molecular orbitals with second laguerre basis and populate e1me and ovlpst
     !Hybrid calculates <Lfp|H|Lf> for e-H2 exchange matrix elements, which will carry through rearrangement      
 		!lagnmax = basis_size(bst_nr)   !old size, with fixed m basis
+		print*, "HYBRID MSC BASIS"
     call Hybrid_MSCbasis(bst_nr,TargetStates,nst_Basis_MSC,nBasis_MSC,lag_ham1el_m,lagnmax,max_latop, indata, &
 			                   m_list_nr, sturm_ind_list_nr)
 
@@ -238,6 +240,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
 		maxL = get_max_L(bst_nr)
 		basissize_nr = totfuncs  !lag_ham1el_m 
 
+		print*, "REARRANGE"
     call rearrange(bst_nr,maxL,TargetStates,.true.,basissize_nr,hamlimmin,hamlimmax,lag_ham1el_m, totfuncs, m_list_nr, sturm_ind_list_nr)
 
 !!$!------------------------------   
@@ -543,6 +546,7 @@ end subroutine construct_1el_basis_nr_group
 subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func, sturm_ind_list,k_list, l_list, m_list)  
     use grid_radial
     use sturmian_class
+		use input_data
     use state_class
     use basismodule
     use numbers
@@ -572,7 +576,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 		integer:: num_lambda
 		real(dpf):: largest, largestZ
     !Arrays for testing case
-    integer, dimension(20):: testm, testl, testk
+    !integer, dimension(20):: testm, testl, testk
 		!For writing one electron states to TargetStates
     integer:: numfound, u1, u2
     complex(dpf), dimension(:,:), allocatable:: tempK, tempB
@@ -698,7 +702,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     !end if
 
     print*, "GET ANGULAR MATRIX ELEMENTS"
-		num_lambda = (indata%lambdamax+1)**2
+		num_lambda = (data_in%ltmax+1)**2
     !!Precalculate angular integrals appearing in V-matrix elements
     allocate(angular(num_lambda,num_func,num_func))
     call getAngular(num_func, angular, l_list, m_list, indata)

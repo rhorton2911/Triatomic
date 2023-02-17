@@ -125,6 +125,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlim
   ! for all the target states, with tot_numf as the array (basis) size
   nspm_loc = 0
   do nst = 1, nstmax ! go through every target state
+		 print*, nst, nstmax
      OneState => TargetStates%b(nst)
      !Angular momentum projection is not a good quantum number for H3+, loop over m
      !mst = get_ang_mom_proj(OneState)
@@ -207,9 +208,10 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlim
 !!$ code for ortint(:,:)
  
   !Liam added OMP to speed this up
-!  !$OMP PARALLEL DO DEFAULT(PRIVATE) SHARED(TargetStates, nstmax, num_n_newf, av_l_newf) &
-!  !$OMP SHARED(av_n_newf, ave_m_newf, bst_rearr, bst_nr, lag_ham1el_m) 
+  !$OMP PARALLEL DO DEFAULT(PRIVATE) SHARED(TargetStates, nstmax, num_n_newf, av_l_newf) &
+  !$OMP SHARED(av_n_newf, av_m_newf, bst_rearr, bst_nr, lag_ham1el_m) 
   do nsti = 1, nstmax
+		 print*, "NSTI: ", nsti
      OneState_i => TargetStates%b(nsti)
      ncm_i = get_nam(OneState_i)
      !msti = get_ang_mom_proj(OneState_i)
@@ -309,7 +311,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlim
         end do ! icl_i
 
      end do ! nsti
-!     !$OMP END PARALLEL DO
+     !$OMP END PARALLEL DO
 !!$--------------------------------------------------------------------------------------
 !!$ This is the code to overwrite the bst_nr (copying bst_rearr to bst_nr)
   call destruct(bst_nr) ! deallocate old bst_nr (old basis) first

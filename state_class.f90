@@ -1279,6 +1279,8 @@ contains
     write(10,*)
 
 
+		!$OMP PARALLEL DO DEFAULT(SHARED) &
+		!$OMP PRIVATE(stateNum,energy,m,par,nFunc,i,j,CI,spectroMat,spectroVec,naVec,sumVec,l,specInd,lPrev,mPrev,maxInd,lSearch,mSearch,lmind,lind,mind,n,stateObj,stateObj2)
     do stateNum = 1, basis_size_st(self)   ! Loop through all the states.
 
        stateObj => self%b(stateNum)   ! Pointer to the current state object.
@@ -1390,6 +1392,7 @@ contains
        deallocate(naVec, spectroMat, sumVec, spectroVec)
 
     enddo ! stateNum
+		!$OMP END PARALLEL DO
 
     close(10)
 

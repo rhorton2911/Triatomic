@@ -38,7 +38,7 @@ OUTPUT
 END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
-  LMAX                      : 3                       #Max orbital angular momentum, l=0,...,LMAX
+  LMAX                      : 7                       #Max orbital angular momentum, l=0,...,LMAX
   BASIS_SIZE                : 30   #60-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
@@ -54,7 +54,7 @@ SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for tw
   BASIS_SIZE                : 30-l   #50-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
   
-  INSERT_ONE_EL_STATES      : 1                       #Number of one-electron states from first diagonalisation to insert in second basis
+  INSERT_ONE_EL_STATES      : 2                       #Number of one-electron states from first diagonalisation to insert in second basis
 
   INSERT_NATURAL_ORBITALS   : 0                       #Number of natural orbitals to insert in second basis (specify a number or "ALL")
   ONLY_NATURAL_ORBITALS     : OFF                     #Perform second diagonalisation only using natural orbitals (ON or OFF)

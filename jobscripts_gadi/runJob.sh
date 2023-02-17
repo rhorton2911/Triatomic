@@ -18,3 +18,5 @@ export OMP_STACKSIZE=1000m
 
 /scratch/d35/rh5686/H3+WorkDir/H3Plus
 
+tracejob $PBS_JOBID > "$PBS_JOBID".trace
+

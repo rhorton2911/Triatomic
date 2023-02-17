@@ -259,7 +259,7 @@
          !Number of (lam,mu) pairs: use formula SUM_l=0^l=L (2l+1) = (L+1)^2 nr = grid%nr
 				 nr = size(gridr)
          num_lambda = (lambda_max_local+1)**2   
-				 indata%lambdamax = lambda_max_local
+				 !indata%lambdamax = lambda_max_local
          allocate(VPot(nr,num_lambda))
          VPot(:,:) = 0.0_dpf
 

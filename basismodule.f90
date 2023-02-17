@@ -17,7 +17,7 @@ module basismodule
 	    !integer:: l         !Angular momentum parameter, max l of the basis
 	    !real(dpf):: dr       !radial grid spacing
 	    !real(dpf):: rmax     !number of radial grid points
-	    integer:: lambdamax  !Maximum lambda in expansion of potential
+	    !integer:: lambdamax  !Maximum lambda in expansion of potential
 	    integer:: harmop     !Option to use real or complex spherical harmonics (1=real, 0=complex)
 	    !Properties and coordinates of each nucleus
 	    integer, dimension(3):: charge  
@@ -25,16 +25,16 @@ module basismodule
 	    real(dpf), dimension(3):: theta
 	    real(dpf), dimension(3):: phi
 			!Parameters for isosceles triangle testing case
-			integer:: isoscop   !(1=use, 0=regular calculation)
-			integer:: hernandeztest
-			integer:: isobasisop
+			!integer:: isoscop   !(1=use, 0=regular calculation)
+			!integer:: hernandeztest
+			!integer:: isobasisop
 			!integer:: conroybasis
-			real(dpf):: R1
-			real(dpf):: R2
-			integer, dimension(20):: testk, testl, testm
-			integer, dimension(7):: testlvec, kminvec, kmaxvec
-			integer:: numtestfuncs
-			real(dpf):: enparam
+			!real(dpf):: R1
+			!real(dpf):: R2
+			!integer, dimension(20):: testk, testl, testm
+			!integer, dimension(7):: testlvec, kminvec, kmaxvec
+			!integer:: numtestfuncs
+			!real(dpf):: enparam
 
 	    !integer:: z1         !Charge of nucleus 1
 	    !integer:: z2         !Charge of nucleus 2
@@ -71,7 +71,7 @@ module basismodule
 			!read(20,*) indata%l
 			!read(20,*) indata%dr
 			!read(20,*) indata%rmax
-			read(20,*) indata%lambdamax
+			!read(20,*) indata%lambdamax
 			read(20,*) indata%harmop
 			read(20,*)
 			read(20,*) indata%charge(1)
@@ -92,19 +92,19 @@ module basismodule
 			indata%phi(2) = pinum*(angletemp/180.0_dpf)
 			read(20,*) angletemp
 			indata%phi(3) = pinum*(angletemp/180.0_dpf)
-			read(20,*) 
-			read(20,*) indata%isoscop
-	    read(20,*) indata%hernandeztest
-	    read(20,*) indata%isobasisop
-	    !read(20,*) indata%conroybasis
-			read(20,*) indata%R1
-			read(20,*) indata%R2
-	    
-                        if (indata%R1 .gt. 2.0_dpf*indata%R2) then
-		           print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
-		           stop
-	                end if
-
+			!read(20,*) 
+			!read(20,*) indata%isoscop
+	    !read(20,*) indata%hernandeztest
+	    !read(20,*) indata%isobasisop
+	    !!read(20,*) indata%conroybasis
+			!read(20,*) indata%R1
+			!read(20,*) indata%R2
+	    !
+!     if (indata%R1 .gt. 2.0_dpf*indata%R2) then
+!		     print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
+!		     stop
+!	    end if
+!
 !			allocate(temp(indata%Nalpha))
 !			temp(:) = 0.0_dpf
 !			temp(:) = indata%alpha(:)
@@ -129,41 +129,41 @@ module basismodule
 !			deallocate(temp)
 !
 
-			if (indata%isoscop .eq. 1) then
-			   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
-			   R1 = indata%R1
-				 R2 = indata%R2
-				 if (indata%hernandeztest .eq. 1) then
-				    R1 = 3.50_dpf
-						R2 = 2*R1*sin(pinum/6.0_dpf)
-				 end if
+			!if (indata%isoscop .eq. 1) then
+			!   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
+			!   R1 = indata%R1
+			!	 R2 = indata%R2
+			!	 if (indata%hernandeztest .eq. 1) then
+			!	    R1 = 3.50_dpf
+			!			R2 = 2*R1*sin(pinum/6.0_dpf)
+			!	 end if
 
-				 L = sqrt(R2**2 - (0.5_dpf*indata%R1)**2)
+			!	 L = sqrt(R2**2 - (0.5_dpf*indata%R1)**2)
 
-				 indata%R(1) = (2.0_dpf/3.0_dpf)*L
-				 RN2 = sqrt((0.5_dpf*R1)**2 + (L/3.0_dpf)**2)
-				 indata%R(2) = RN2
-				 indata%R(3) = RN2    !Symmetric case
+			!	 indata%R(1) = (2.0_dpf/3.0_dpf)*L
+			!	 RN2 = sqrt((0.5_dpf*R1)**2 + (L/3.0_dpf)**2)
+			!	 indata%R(2) = RN2
+			!	 indata%R(3) = RN2    !Symmetric case
 
-                                 thetaN2 = acos((RN2**2+(2.0_dpf*L/3.0_dpf)**2-R2**2)/(2.0_dpf*RN2*(2.0_dpf*L/3.0_dpf)))
-				 indata%theta(1) = 0.0_dpf
-				 indata%theta(2) = thetaN2  !acos gives angle in radians
-				 indata%theta(3) = thetaN2
-				 indata%phi(1) = 0.0_dpf
-				 indata%phi(2) = pinum*90.0_dpf/180_dpf 
-				 indata%phi(3) = -indata%phi(2)  !Symmetric, x axis orthogonal to plane of molecule
+      !                           thetaN2 = acos((RN2**2+(2.0_dpf*L/3.0_dpf)**2-R2**2)/(2.0_dpf*RN2*(2.0_dpf*L/3.0_dpf)))
+			!	 indata%theta(1) = 0.0_dpf
+			!	 indata%theta(2) = thetaN2  !acos gives angle in radians
+			!	 indata%theta(3) = thetaN2
+			!	 indata%phi(1) = 0.0_dpf
+			!	 indata%phi(2) = pinum*90.0_dpf/180_dpf 
+			!	 indata%phi(3) = -indata%phi(2)  !Symmetric, x axis orthogonal to plane of molecule
 
-				 !Set up arrays storing indices of basis functions, hardcode
-				 !values from Conroy's paper.
-	       indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
-	       indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
-	       indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
-				 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
-				 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
-				 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
-				 indata%enparam = -3.788_dpf  !energy (a.u)
-				 indata%numtestfuncs = 20
-			end if
+			!	 !Set up arrays storing indices of basis functions, hardcode
+			!	 !values from Conroy's paper.
+	    !   indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
+	    !   indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
+	    !   indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
+			!	 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
+			!	 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
+			!	 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
+			!	 indata%enparam = -3.788_dpf  !energy (a.u)
+			!	 indata%numtestfuncs = 20
+			!end if
 
 			
 			close(20)
@@ -527,6 +527,7 @@ module basismodule
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine getVPotNuc(ingrid, VPotTemp, R, theta, phi, z, indata)
 	    use grid_radial
+			use input_data
 	    implicit none
 	    type(rgrid):: ingrid
 	    !real(dpf), allocatable, dimension(:):: rgrid
@@ -543,7 +544,7 @@ module basismodule
 	       allocate(f(ingrid%nr))
 
 	       lambdaind = 1
-	       do lambda= 0, indata%lambdamax
+	       do lambda= 0, data_in%ltmax
 	          f(:) = dble(z)*(min(ingrid%gridr(:),R)**lambda)/(max(ingrid%gridr(:),R)**(lambda+1))
 
 	          do q = -lambda, lambda 
@@ -572,6 +573,7 @@ module basismodule
 	 !         use in computing potential matrix elements
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine getAngular(num_func, angular, l_list, m_list, indata)
+			use input_data
 	    implicit none
 	    type(smallinput):: indata
 	    real(dpf), dimension(:,:,:):: angular
@@ -590,8 +592,8 @@ module basismodule
       jjPrev = -1
 
       !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
-	    !!!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
-	    !!!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
+	    !!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
+	    !!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
       do ii = 1, num_func
 	       !print*, ii
          do jj = 1, num_func
@@ -600,7 +602,7 @@ module basismodule
             lj = l_list(jj)
             mj = m_list(jj)
             lambdaind=1
-            do lambda = 0, indata%lambdamax
+            do lambda = 0, data_in%ltmax
                do q = -lambda, lambda
                   if (((liPrev .eq. li) .and. (miPrev .eq. mi)) .and. ((ljPrev .eq. lj) .and. (mjPrev .eq. mj))) then
                      angular(lambdaind,ii,jj) = angular(lambdaind,iiPrev,jjPrev)
@@ -622,7 +624,7 @@ module basismodule
             jjPrev = jj
          end do
       end do
-	    !!!$OMP END PARALLEL DO 
+	    !!$OMP END PARALLEL DO 
 
 	 end subroutine getAngular
 
@@ -666,6 +668,7 @@ module basismodule
 	 subroutine getRadMatEl(basis, VPot,ingrid, VRadMatEl, indata)
 	    use grid_radial
 	    use sturmian_class
+			use input_data
 	    implicit none
 	    type(rgrid)::ingrid
 	    complex(dpf), dimension(:,:):: VPot
@@ -684,7 +687,7 @@ module basismodule
 
 
 	    !$OMP PARALLEL DO DEFAULT(none) PRIVATE(m, lambda, q, lambdaind, f, i1, i2) &
-	    !$OMP& SHARED(VPot, ingrid, basis, indata, nr, numrfuncs, VRadMatEl)
+	    !$OMP& SHARED(VPot, ingrid, basis, indata, nr, numrfuncs, VRadMatEl, data_in)
 	    do n = 1, numrfuncs
 	       !print*, n
 	       allocate(f(nr))
@@ -693,7 +696,7 @@ module basismodule
 		        i1 = max(basis%b(n)%minf, basis%b(m)%minf)
 		        i2 = min(basis%b(n)%maxf, basis%b(m)%maxf)
 		        lambdaind = 1
-		        do lambda = 0, indata%lambdamax
+		        do lambda = 0, data_in%ltmax
 		           do q = -lambda, lambda
 	                f(i1:i2) = basis%b(n)%f(i1:i2) * VPot(i1:i2,lambdaind) * basis%b(m)%f(i1:i2)
 			            VRadMatEl(lambdaind,n,m) = sum(f(i1:i2)*ingrid%weight(i1:i2))
@@ -717,6 +720,7 @@ module basismodule
 	 !      same for appropriately calculated VPot and angular integrals
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata, use_list)
+			use input_data
 	    implicit none
 	    integer, dimension(:):: sturm_ind_list
 	    integer:: num_func
@@ -746,7 +750,7 @@ module basismodule
 		        if (use1 .and. use2) then
 	             !Calculate V-matrix element for each lambda in the expansion
 		           lambdaind = 1
-		           do lambda = 0, indata%lambdamax
+		           do lambda = 0, data_in%ltmax
 		              do q = -lambda, lambda
 		                 V(ii,jj) = V(ii,jj) + VRadMatEl(lambdaind,n,m)*angular(lambdaind,ii,jj)
 		                 lambdaind = lambdaind + 1
