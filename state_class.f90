@@ -1254,6 +1254,7 @@ contains
 		integer, dimension(:):: m_list   !length of nam=num_func
 		integer:: lPrev, mPrev, specInd
 		integer:: lind, mind, lmind, lSearch, mSearch, maxInd
+		integer:: varl, varm
 
 
     ! Set up the file.
@@ -1314,22 +1315,40 @@ contains
 			 specInd = 0
 			 lPrev = -1
 			 mPrev = -1000
-       do i = 1, nFunc
-          l = get_ang_mom( bst%b(sturm_ind_list(naVec(i))) )
-					m = m_list(naVec(i))
-					if (l .ne. lPrev) then
-			       specInd = specInd + 1
-						 lPrev = l
-						 mPrev = m
-				  else
-						 if (m .ne. mPrev) then
-						    specInd = specInd + 1
-								mPrev = m
-						 end if
-				  end if
+       !do i = 1, nFunc
+       !   l = get_ang_mom( bst%b(sturm_ind_list(naVec(i))) )
+			 ! 	m = m_list(naVec(i))
+			 ! 	if (l .ne. lPrev) then
+			 !      specInd = specInd + 1
+			 ! 		 lPrev = l
+			 ! 		 mPrev = m
+			 !   else
+			 ! 		 if (m .ne. mPrev) then
+			 ! 		    specInd = specInd + 1
+			 ! 				mPrev = m
+			 ! 		 end if
+			 !   end if
 
-          spectroVec(specInd) = spectroVec(specInd) + sumVec(i)
-       end do
+       !   spectroVec(specInd) = spectroVec(specInd) + sumVec(i)
+       !end do
+
+			 specInd = 0
+			 do l = labot, latop
+					do m = -l, l
+						 specInd = specInd + 1
+						 do i = 1, nFunc
+						    do j = 1, nFunc
+								   if ((get_ang_mom(bst%b(sturm_ind_list(naVec(i)))) .eq. l) &
+									     .and. (m_list(i) .eq. m)) then
+								      if ((get_ang_mom(bst%b(sturm_ind_list(naVec(j)))) .eq. l) &
+									       .and. (m_list(j) .eq. m)) then
+							           spectroVec(specInd) = spectroVec(specInd) + spectroMat(i,j)
+										  end if
+							     end if
+						    end do
+						 end do
+				  end do
+			 end do
  
        !l = maxloc(spectroVec, 1) - 1   ! Largest spectroscopic factor.
        maxInd = maxloc(spectroVec, 1)    ! Largest spectroscopic factor.
@@ -1337,13 +1356,12 @@ contains
        lmind = 1
 			 lSearch = 0
 			 mSearch = 0
-			 do lind = 0, latop
+			 do lind = labot, latop
 					do mind = -lind, lind
 						 if (lmind .eq. maxInd) then
-								cycle
+								lSearch = lind
+								mSearch = mind
 						 end if
-						 lSearch = lind
-						 mSearch = mind
 						 lmind = lmind + 1
 				  end do
 			 end do

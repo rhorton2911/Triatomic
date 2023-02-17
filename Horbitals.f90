@@ -24,7 +24,7 @@ function H1el_Lag(ni,nj,mi,mj)
   real*8:: alpha_i, alpha_j
   integer:: ki, kj, li, lj                      ! Laguerre funtion quatum numbers
   integer:: r1, r2, max_ri, max_rj, min_ri, min_rj
-  
+ 
   ortint => bst_nr%ortint
   H1el_Lag = 0d0
   
@@ -75,8 +75,10 @@ function H1el_Lag(ni,nj,mi,mj)
      end if ! alpha_i == aplha_j             
   end if ! li == lj and mi==mj
   
+
   ! One-electron Hamiltonian for each Laguerre function 
-  H1el_Lag =  KE + VLambdaR_ME_group(pi,pj,mi,mj)
+  H1el_Lag =  KE + VLambdaR_ME_group(pi,pj,mi,mj) 
+
   
 end function H1el_Lag
 

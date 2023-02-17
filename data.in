@@ -29,7 +29,7 @@ OUTPUT
   DIPOLE_MOMENTS            : OFF                     #Dipole moments
   DCS                       : OFF                     #Differential cross sections " "
   TV_FILES                  : OFF                     #"TV" files containing T- and V-matrix elements in easy to read form
-  ONE_EL_BASIS_LIST         : OFF                     #The list of one-electron basis functions - useful for debugging
+  ONE_EL_BASIS_LIST         : ON                     #The list of one-electron basis functions - useful for debugging
   TWO_EL_CONFIG_LIST        : OFF                     #List of two-electron configurations per target symmetry - useful for debugging
   CI_COEFFICIENTS           : OFF                     #List of configurations and corresponding CI coefficients for each two-electron state
   VMATRIX                   : OFF                     #Print the fully off-shell V matrix per symmetry (also P01 matrix) - only in single-task calculation
@@ -39,7 +39,7 @@ END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
   LMAX                      : 3                       #Max orbital angular momentum, l=0,...,LMAX
-  BASIS_SIZE                : 20  #10-l                    #Number of basis functions per l
+  BASIS_SIZE                : 30   #60-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
 ONE_ELECTRON_STATES                                   #Choose which one-electron states to keep
@@ -50,11 +50,11 @@ END                                                   #If the system does not ha
 
 SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for two-electron diagonalisation (or maybe second one-electron diagonalisation) 
   USE_SECOND_BASIS          : ON                      #If OFF then the one-electron states kept from the first diagonalisation form the basis for the second diagonalisation
-  LMAX                      : 3                       #Max l of Laguerre functions
-  BASIS_SIZE                : 20   #50-l                    #Number of basis functions per l
-  EXPONENTIAL_FALLOFF       : 1.4      #0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
+  LMAX                      : 4                       #Max l of Laguerre functions
+  BASIS_SIZE                : 30-l   #50-l                    #Number of basis functions per l
+  EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
   
-  INSERT_ONE_EL_STATES      : 200                       #Number of one-electron states from first diagonalisation to insert in second basis
+  INSERT_ONE_EL_STATES      : 1                       #Number of one-electron states from first diagonalisation to insert in second basis
 
   INSERT_NATURAL_ORBITALS   : 0                       #Number of natural orbitals to insert in second basis (specify a number or "ALL")
   ONLY_NATURAL_ORBITALS     : OFF                     #Perform second diagonalisation only using natural orbitals (ON or OFF)

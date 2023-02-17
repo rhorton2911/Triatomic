@@ -981,7 +981,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     !stop
     
     !l12max = data_in%l12max
- 
+
     maxstates=0 
     do mode = 0, 1  !mode=0 (count states), mode=1 (diagonisalise H12)
        if (mode .eq. 1) then
@@ -1104,6 +1104,15 @@ subroutine structure12group(basis,oneestates,num_states,indata)
              !   close(90)
              !end if 
 
+						 !print*, "H Matrix"
+						 !do ii = 1, numcon
+						 ! 	print*, H(ii,:)
+						 !end do
+						 !print*, "b Matrix"
+						 !do ii = 1, numcon
+						 ! 	print*, b(ii,:)
+						 !end do
+
              !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
              allocate(work(1))
              allocate(w(numcon))    !Stores eigenvalues
@@ -1166,7 +1175,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     write(81,*) "                          (theta1, theta2, theta3)= ", indata%theta(1), indata%theta(2), indata%theta(3)
     write(81,*) "                                (phi1, phi2, phi3)= ", indata%phi(1), indata%phi(2), indata%phi(3)
     write(81,*) "  N     Label       S     E(a.u)"
-    do ii = 1, TargetStates2el%Nstates
+    do ii = 1, min(TargetStates2el%Nstates,200)
        write(line,"(2X,I6,6X,A6,5X,I1,3X,f18.10)") ii, TargetStates2el%b(ii)%label, int(TargetStates2el%b(ii)%spin), TargetStates2el%b(ii)%energy
        write(81,*) ADJUSTL(TRIM(line))
     end do
@@ -1506,7 +1515,7 @@ subroutine config12_st(TargetStates1el,ma,ip,is,l12max,nk1,nk2,l_ion_core,n_ion_
          !write(666,'(I5.1,2X,A4 X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, orb_type
        else
          orb_type = '   MO   '
-         write(666,'(I5.1,2X,A4 X, I2.1, 2X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, get_par(TargetStates1el%b(nst1)), orb_type
+         write(666,'(I5.1,2X,A4, X, I2.1, 2X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, get_par(TargetStates1el%b(nst1)), orb_type
        endif
      endif
 
@@ -1741,7 +1750,7 @@ subroutine config12_st_group(TargetStates1el,rep,is,l12max,l_ion_core,n_ion_core
            !write(666,'(I5.1,2X,A4 X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), mnst1, orb_type
         else
            orb_type = '   MO   '
-           write(666,'(I5.1,2X,A4 X, I2.1, 2X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), orb_type
+           write(666,'(I5.1,2X,A4, X, I2.1, 2X, I2.1, 2X, A8)') nst1, trim(adjustl(get_label(TargetStates1el%b(nst1)))), m1_majconf, get_par(TargetStates1el%b(nst1)), orb_type
         endif
      endif
 
@@ -2863,7 +2872,8 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
 
   oneelME = 0d0
   
-  if(nst1 .eq. nst1p .and. nst2 .eq. nst2p) then
+	!Basis functions from different irrps will be orthogonal
+  if(repnsp1 .eq. repnsp1p .and. repnsp2 .eq. repnsp2p) then
 
      !resultb = 1d0
      !oneelME = get_energy_st(TargetStates1el%b(nst1)) + get_energy_st(TargetStates1el%b(nst2))
@@ -2873,6 +2883,11 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
      oneelme =   e1me(nst1,nst1p) * ovlpst(nst2,nst2p)
 
      oneelme =  oneelme + e1me(nst2,nst2p) * ovlpst(nst1,nst1p)
+
+		 !if (nst2 .eq. 4) then
+		 ! 	print*, "NST, NST2P", nst2, nst2p
+		 ! 	print*, ovlpst(nst1,nst1p), ovlpst(nst2,nst2p), resultb
+	   !end if
 
   endif
 
@@ -2897,6 +2912,14 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
         oneelme =  oneelme + (-1)**(is) * e1me(nst1,nst2p) * ovlpst(nst2,nst1p) ! ovlp_st(TargetStates1el%b(nst2),TargetStates1el%b(nst1p)) *  H1el_st(TargetStates1el%b(nst1),TargetStates1el%b(nst2p))
         
         oneelme =  oneelme + (-1)**(is) * e1me(nst2,nst1p) *  ovlpst(nst1,nst2p) ! ovlp_st(TargetStates1el%b(nst1),TargetStates1el%b(nst2p)) *  H1el_st(TargetStates1el%b(nst2),TargetStates1el%b(nst1p))
+
+
+		 !if (nst2 .eq. 4) then
+		 ! 	print*, "PART 2 NST, NST2P", nst2, nst2p
+		 ! 	print*, ovlpst(nst1,nst1p), ovlpst(nst2,nst2p), resultb
+	   !end if
+
+
 
      endif
   endif
@@ -3021,7 +3044,7 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
 
   !H3++ code includes nuclear interaction, need to compensate 
   !for 2*sum_ij z_i*z_j/R_ij introduced by using two sets of 1e states, subtract tmp
-  resultH = oneelme - tmp + twoelme
+  resultH = oneelme + twoelme + tmp
 
   return
 end subroutine H12me_st_group_notortog

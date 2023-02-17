@@ -939,7 +939,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     write(80,*) "State Energies (Ha)"
     write(80,*) "R1=", indata%R(1), " R2=", indata%R(2), "R3=", indata%R(3)
     write(80,*) "N (index), E(Ha)"
-    do ii = 1, nstates
+    do ii = 1, min(nstates, 100)
        write(80,*) ii, energies(ii)
     end do
     close(80)
@@ -1176,6 +1176,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
       use MPI_module
       use state_class
       use input_data
+			use basismodule
   
       implicit none
       integer, intent(in):: Nmax ! Number of states      
@@ -1192,7 +1193,6 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 			integer, dimension(:):: m_list_nr   !Combined m_list for bst_nr = (bst_MSC, bst_data)
 			integer, dimension(:):: sturm_ind_list_nr   !Combined m_list for bst_nr = (bst_MSC, bst_data)
 
-			integer:: ii
 
       do nsti = 1, Nmax
          state_i => TargetStates%b(nsti)
@@ -1287,6 +1287,92 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
       rad_func = 0
       kk = 0
       do l = data_in_sturm%labot, data_in_sturm%latop
+         do k = 1, data_in_sturm%nps(l)
+            do m = -l, l
+               !jj  = kk 
+
+               ii = ii + 1
+               k_list(ii) = k
+               l_list(ii) = l
+  	           m_list(ii) = m
+  	           !print*, "L,M,k,ii: ", l, m, k, ii
+  
+  	           !Indexing changed for non-diatomics, indices for basis now include l, k AND m. For a given l, the same radial basis
+  	           !functions phi_{kl} are used for each value of m from -l to l. Introduce an array to track which radial basis 
+  	           !function belongs to which index: sturm_ind_list
+  	           !jj = jj + 1
+  
+  	           found = .false.
+  	           n = 1
+  	           do while (.not. found)
+                  !print*, basis%b(n)%l, basis%b(n)%m, basis%b(n)%k, "L,K: ", l, k
+  	              if ((basis%b(n)%l .eq. l) .and. (basis%b(n)%k .eq. k)) then
+                     found = .true.
+  	              else
+                     n = n + 1
+  	              end if
+  	           end do
+  
+  	           sturm_ind_list(ii) = n
+  	           !print*, jj
+            end do
+         end do
+         !The radial part of the basis is identical for any given (l,k) pair, regardless of m
+         !do k = 1, data_in_sturm%nps(l)
+         !   rad_func = rad_func + 1
+         !end do
+				 rad_func = rad_func + data_in_sturm%nps(l)
+  
+         kk = kk + data_in_sturm%nps(l)
+      end do
+	
+  end subroutine countConfigs
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	!Subroutine: countConfigs
+	!Purpose: counts the number of one-electon configurations for a given
+	!         sturmian basis resolved in (kl) only. Fills arrays l_list,
+	!         m_list, etc, with the (klm) indices of the fully (klm) resolved 
+	!         basis. Uses data_in_sturm values to determine number of functions per l
+	!Note: only called in non-linear molecule mode.
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	subroutine countConfigs_old(basis, data_in_sturm, k_list, l_list, m_list, sturm_ind_list, num_func, rad_func)
+		  use input_data  
+			use sturmian_class
+		  implicit none
+			type(input):: data_in_sturm
+			type(basis_sturmian_nr):: basis
+			integer, dimension(:), allocatable:: k_list, l_list, m_list
+			integer, dimension(:), allocatable:: sturm_ind_list
+			integer, intent(inout):: num_func, rad_func
+      integer:: ii, jj, kk    
+			integer:: k, l, m, n    !Sturmian indices
+			logical:: found
+ 
+      !Triatomic molecules do not have good quantum numbers such as angular momentum and parity (like H2+).
+      !Instead, the clamped nuclei electronic V-matrix is diagonal in different irreducible representations of a 
+      !given point group. Since we are not currently using a symmetry adapted basis, we can only loop over lm
+      num_func=0
+      do l = data_in_sturm%labot, data_in_sturm%latop
+         !Now need to loop over l and m, m is no longer conserved.
+         do m = -l, l
+            num_func = num_func + data_in_sturm%nps(l) !Array nps indexed from zero
+         end do
+      end do
+      if (num_func .eq. 0) then
+         print*, "ERROR: num_func=0: no basis functions. Stopping"
+         error stop
+      end if
+
+      !Define arrays to keep track of k,l,m values for each index
+      !Indexing scheme: specify (l,m), then k goes from 1 to N_l for each such pair 
+      !i.e l -> m -> k_lm
+      allocate(k_list(num_func), l_list(num_func), m_list(num_func), sturm_ind_list(num_func))
+      ii = 0
+      rad_func = 0
+      kk = 0
+      do l = data_in_sturm%labot, data_in_sturm%latop
          do m = -l, l
             jj  = kk 
             do k = 1, data_in_sturm%nps(l)
@@ -1324,8 +1410,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
          kk = kk + data_in_sturm%nps(l)
       end do
 	
-  end subroutine countConfigs
-
+  end subroutine countConfigs_old
 
 
 end module one_electron_func_group

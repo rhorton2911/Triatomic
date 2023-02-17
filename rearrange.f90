@@ -314,7 +314,7 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlim
 !!$ This is the code to overwrite the bst_nr (copying bst_rearr to bst_nr)
   call destruct(bst_nr) ! deallocate old bst_nr (old basis) first
   call new_basis(bst_nr, nspm_loc) ! allocate nspm_loc new space for a new created bst_nr
-  
+ 
   call copy_basis(bst_nr,bst_rearr)
   !nspm =  basis_size(bst_nr)
 
@@ -353,6 +353,9 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlim
      deallocate(CI_in) 
      
   end do ! nst
+
+
+
 !!$ ------------------------------------
 !!$ print to file the pseudo state
 
