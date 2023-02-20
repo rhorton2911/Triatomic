@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /scratch/d35/rhorton/equilateralCase
+cd /scratch/d35/rhorton/H3+WorkDir
 
 declare -a idArray
 readarray -t idArray < jobIdFile

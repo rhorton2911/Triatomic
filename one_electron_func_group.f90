@@ -1198,28 +1198,40 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 			integer, dimension(:):: sturm_ind_list_nr   !Combined m_list for bst_nr = (bst_MSC, bst_data)
 
 
+
+      !$OMP PARALLEL DO DEFAULT(SHARED) & 
+      !$OMP PRIVATE(nstj,i,j,ma,Ham,ni,Ci,nj,Cj,mi,mj,sturmi,sturmj) &
+      !$OMP SCHEDULE(DYNAMIC)
       do nsti = 1, Nmax
-         state_i => TargetStates%b(nsti)
-         ma = state_i%m
+         !state_i => TargetStates%b(nsti)
+         !ma = state_i%m
+				 ma = TargetStates%b(nsti)%m
 				 if (.not. data_in%good_m) then
 						ma = 0   !Basis contains m
 			   end if 
   
          do nstj = 1, nsti
-            state_j => TargetStates%b(nstj)
+            !state_j => TargetStates%b(nstj)
   
             Ham = 0d0
   
-            if (data_in%good_m .and. (state_i%m /= state_j%m)) cycle
-            if (data_in%good_parity .and. (state_i%parity /= state_j%parity)) cycle
-            do i = 1, state_i%nam
+            !if (data_in%good_m .and. (state_i%m /= state_j%m)) cycle
+            !if (data_in%good_parity .and. (state_i%parity /= state_j%parity)) cycle
+            if (data_in%good_m .and. (TargetStates%b(nsti)%m /= TargetStates%b(nstj)%m)) cycle
+            if (data_in%good_parity .and. (TargetStates%b(nsti)%parity /= TargetStates%b(nstj)%parity)) cycle
+
+            do i = 1, TargetStates%b(nsti)%nam
 							 !If state is an MO, ni refers to combined bst_nr, while ci refers original basis with sturmians stored in bst_data
-               ni = state_i%na(i)
-               Ci = get_CI(state_i,i)
+               !ni = state_i%na(i)
+               !Ci = get_CI(state_i,i)
+							 ni = TargetStates%b(nsti)%na(i)
+							 Ci = TargetStates%b(nsti)%CI(i)
   
-               do j = 1, state_j%nam
-                  nj = state_j%na(j)
-                  Cj = get_CI(state_j,j)
+               do j = 1, TargetStates%b(nstj)%nam
+                  !nj = state_j%na(j)
+                  !Cj = get_CI(state_j,j)
+									nj = TargetStates%b(nstj)%na(j)
+									Cj = TargetStates%b(nstj)%CI(j)
 
 									mi = m_list_nr(ni)
 									mj = m_list_nr(nj) 
@@ -1238,6 +1250,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
   
          end do ! nstj
       end do ! nsti    
+      !$OMP END PARALLEL DO
 
 
   

@@ -31,11 +31,11 @@ endif
 
 
 #-------------------- Choose compiler flags ---------------------------#
-FLAGS= -Wall -Wno-tabs -pedantic -fimplicit-none  -fopenmp #-Werror
-ERRFLAGS1= -g -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division -fbounds-check
+FLAGS= -Wall -Wno-tabs -pedantic -fimplicit-none  -fopenmp -g #-Werror
+ERRFLAGS1= -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division -fbounds-check
 ERRFLAGS= $(ERRFLAGS1) -Wsurprising  -fstack-check #--fpe-trap=invalid,zero,overflow
 #Comment out errflags when not debugging
-CFLAGS=$(FLAGS)  $(ERRFLAGS) 
+CFLAGS=$(FLAGS)  #$(ERRFLAGS) 
 MCFLAGS = $(CFLAGS) -ffree-line-length-512
 
 all: $(EXEC)

@@ -11,14 +11,14 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=22
+#SBATCH --cpus-per-task=128
 #SBATCH --exclusive
-#SBATCH --time=00:10:00
+#SBATCH --time=00:30:00
 #SBATCH --export=NONE
 
-export OMP_NUM_THREADS=22
-export OMP_STACKSIZE=500m
+export OMP_NUM_THREADS=128
+export OMP_STACKSIZE=1000m
 echo "Running H3++ structure"
 
 
-srun -N 1 -n 1 -c 22 $MYSCRATCH/equilateralCase/H3Plus
+srun -N 1 -n 1 -c 128 $MYSCRATCH/H3+WorkDir/H3Plus

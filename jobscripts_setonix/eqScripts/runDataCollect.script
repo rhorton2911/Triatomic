@@ -18,4 +18,4 @@ export OMP_NUM_THREADS=1
 export OMP_STACKSIZE=3000m
 
 echo "Collecting Data"
-bash $MYSOFTWARE/Triatomic/jobscripts/eqScripts/collectData.sh
+bash $MYSOFTWARE/Triatomic/jobscripts_setonix/eqScripts/collectData.sh

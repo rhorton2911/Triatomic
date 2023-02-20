@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-cd $MYSCRATCH/isosceleseTest
+cd $MYSCRATCH/H3+WorkDir
 
 readarray -t Rvals1 < R1vals.txt
 readarray -t Rvals2 < R2vals.txt

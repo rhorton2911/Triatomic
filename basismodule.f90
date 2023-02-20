@@ -581,7 +581,7 @@ module basismodule
 	    integer, dimension(:):: l_list, m_list
 	    integer:: lambdaind, lambda, q
 	    integer:: ii, jj
-      real(dpf):: overlap      
+            real(dpf):: overlap      
 	    integer:: li, mi, lj, mj, liPrev, miPrev, ljPrev, mjPrev, iiPrev, jjPrev
 
       liPrev = -1
@@ -592,8 +592,8 @@ module basismodule
       jjPrev = -1
 
       !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
-	    !!$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
-	    !!$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
+      !$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
+      !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
       do ii = 1, num_func
 	       !print*, ii
          do jj = 1, num_func
@@ -624,7 +624,7 @@ module basismodule
             jjPrev = jj
          end do
       end do
-	    !!$OMP END PARALLEL DO 
+      !$OMP END PARALLEL DO 
 
 	 end subroutine getAngular
 

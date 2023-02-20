@@ -158,36 +158,37 @@ end function H1el_Lag
          if(data_in%good_parity .and. (-1)**lam /= 1) cycle
          if(lam < abs(li-lj) .or. lam > li+lj) cycle
        
-				 if (data_in%good_m) then
-						qmin = 0
-						qmax = qmin
-				 else
-						qmin = -lam
-						qmax = lam
-				 end if
-				 !For non-diatomics, loop over lam, q
-				 do q = qmin, qmax
-						if (data_in%good_m) then
+	 if (data_in%good_m) then
+	    qmin = 0
+            qmax = qmin
+	 else
+	    qmin = -lam
+	    qmax = lam
+         end if
+
+	 !For non-diatomics, loop over lam, q
+         do q = qmin, qmax
+	    if (data_in%good_m) then
                tmp1 = Yint(dble(li),dble(mi),dble(lam),dble(0),dble(lj),dble(mj))
-							 lamind = lam
-						else if (.not. data_in%good_m) then
-							 !Running in H3+ mode, factor of 4pi/(2l+1) in partial wave expansion kept in Vlm in this case, have to compensate for
-							 !Yint includeing a factor of sqrt(4pi/(2l+1))
-							 if (data_in%harmop .eq. 0) then
+	       lamind = lam
+	    else if (.not. data_in%good_m) then
+	       !Running in H3+ mode, factor of 4pi/(2l+1) in partial wave expansion kept in Vlm in this case, have to compensate for
+	       !Yint includeing a factor of sqrt(4pi/(2l+1))
+	       if (data_in%harmop .eq. 0) then
                   tmp1 =  sqrt(dble(2*lam+1)/(4.0_dpf*pinum))*Yint(dble(li),dble(mi),dble(lam),dble(q),dble(lj),dble(mj))
-							 else if (data_in%harmop .eq. 1) then
+               else if (data_in%harmop .eq. 1) then
                   tmp1 = Xint(dble(li),dble(mi),dble(lam),dble(q),dble(lj),dble(mj))
-							 end if
-							 lamind = lamind + 1
-						end if
+	       end if
+	       lamind = lamind + 1
+	    end if
 
             !  if (myid == 0) print*, i,j, lam, tmp1
             i1 = max(minvnc(lamind),minf)
             i2 = min(maxvnc(lamind),maxf)
             tmp = tmp + tmp1 * SUM(weight(i1:i2)*fi(i1:i2)*fj(i1:i2)*vnc(i1:i2,lamind))
-			   end do
+	 end do
 
-        if ((data_in%N_core_el > 0 .and. .not.data_in%pseudo_pot) .and. data_in%good_m) then !add core exchange ME
+         if ((data_in%N_core_el > 0 .and. .not.data_in%pseudo_pot) .and. data_in%good_m) then !add core exchange ME
           do jcore=1, CoreOrbitals%Nmax
             
             coreorb => CoreOrbitals%b(jcore)
