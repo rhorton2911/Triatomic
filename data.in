@@ -50,7 +50,7 @@ END                                                   #If the system does not ha
 
 SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for two-electron diagonalisation (or maybe second one-electron diagonalisation) 
   USE_SECOND_BASIS          : ON                      #If OFF then the one-electron states kept from the first diagonalisation form the basis for the second diagonalisation
-  LMAX                      : 5                       #Max l of Laguerre functions
+  LMAX                      : 4                       #Max l of Laguerre functions
   BASIS_SIZE                : 30-l   #50-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
   

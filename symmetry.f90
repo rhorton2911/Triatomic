@@ -16,7 +16,7 @@ module symmetry
 				 integer:: numirreps
 			   character(len=6), dimension(:), allocatable:: irrlabel !Labels for the irreps
 				 integer, dimension(:,:), allocatable:: chartable  !Character table for the group
-				 integer, dimension(:), allocatable:: irrdims !dimension of each representation
+				 integer, dimension(:), allocatable:: dims !dimension of each representation
 				 integer, dimension(:), allocatable:: conorder !order of each conjugacy class
 				 integer, dimension(:,:), allocatable:: lamtable  !Eigenvalue table for the group
 			end type group
@@ -56,8 +56,28 @@ module symmetry
 					self%dims(:) = /(1, 1, 2, 1, 1, 2)/
 					self%conorder(:) = /(1, 2, 3, 1, 2, 3)/
 
+					do jj = 1, numirrs  !classes
+					   self%lamtable(:,jj) = self%chartable(:,jj)*self%conorder(jj)/self%dims(:)
+				  end do
+			 else
+					print*, "ERROR: groups other than D3h not yet implemented, stopping."
+					stop
+			 end if
+   end subroutine init_group
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: project
+	 !Purpose: computes the matrix elements of the operator C_II, used to
+	 !         project a space of functions onto group irreps.
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine project(CMat, 
+
+	 
 
 
-			 end if 
+
+
+
+
 
 end module symmetry
