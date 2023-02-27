@@ -907,7 +907,7 @@ end subroutine structure12
 !         Creates and diagonalises 2e hamiltonian for non-linear molecule,
 !         using the hybrid basis produced in construct_1el_basis_nr_group
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine structure12group(basis,oneestates,num_states,indata)
+subroutine structure12group(basis,oneestates,num_states)
     use numbers
     use basismodule
     use input_data      !data_in
@@ -921,7 +921,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
     implicit none
     type(basis_sturmian_nr)::basis   !Sturmian basis used for 1e diagonalisation
     type(basis_state):: oneestates   !One electron spatial molecular orbitals
-    type(smallinput):: indata
+    !type(smallinput):: indata
     integer:: ii, jj, counter, kk
     integer:: num_states !Size of one electron basis
     logical:: hlike
@@ -1081,7 +1081,7 @@ subroutine structure12group(basis,oneestates,num_states,indata)
                 !call H12me_st_group(is, indata, oneestates, basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
 								Nmax1el = oneestates%Nmax
                 !call H12me_st_group_notortog(is, indata, oneestates, Nmax1el,e1me,ovlpst,basis, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
-                call H12me_st_group_notortog(is, indata, oneestates, Nmax1el,e1me,ovlpst,bst_nr, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
+                call H12me_st_group_notortog(is,oneestates, Nmax1el,e1me,ovlpst,bst_nr, nsp1, nsp2, nsp1p, nsp2p, repnsp1,repnsp2,repnsp1p,repnsp2p, Helement, belement)
 
                 H(nc, ncp) = Helement
                 H(ncp, nc) = Helement
@@ -1171,9 +1171,9 @@ subroutine structure12group(basis,oneestates,num_states,indata)
 
     open(81,file='2eenergies.txt')
     write(81,*) "  Two Electron States, Target Name: H3+"
-    write(81,*) "  Nuclear Geometry:                   (R1, R2, R3)= ", indata%R(1), indata%R(2), indata%R(3)
-    write(81,*) "                          (theta1, theta2, theta3)= ", indata%theta(1), indata%theta(2), indata%theta(3)
-    write(81,*) "                                (phi1, phi2, phi3)= ", indata%phi(1), indata%phi(2), indata%phi(3)
+    write(81,*) "  Nuclear Geometry:                   (R1, R2, R3)= ", data_in%Rvec(1), data_in%Rvec(2), data_in%Rvec(3)
+    write(81,*) "                          (theta1, theta2, theta3)= ", data_in%thetavec(1), data_in%thetavec(2), data_in%thetavec(3)
+    write(81,*) "                                (phi1, phi2, phi3)= ", data_in%phivec(1), data_in%phivec(2), data_in%phivec(3)
     write(81,*) "  N     Label       S     E(a.u)"
     do ii = 1, min(TargetStates2el%Nstates,200)
        write(line,"(2X,I6,6X,A6,5X,I1,3X,f18.10)") ii, TargetStates2el%b(ii)%label, int(TargetStates2el%b(ii)%spin), TargetStates2el%b(ii)%energy
@@ -2644,7 +2644,7 @@ end subroutine H12me_st
 !$$   with given symmetry group representation as a label
 !$$   antisymmetric configurations 
 
-subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2p,resultH,resultb)
+subroutine H12me_st_group(is,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2p,resultH,resultb)
   
   use basismodule 
   use sturmian_class
@@ -2655,7 +2655,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
   implicit none
 
   integer, intent(in):: is
-  type(smallinput):: indata
+  !type(smallinput):: indata
   type(basis_state), intent(in):: TargetStates1el
   type(basis_sturmian_nr), intent(in):: bst
   integer, intent(in):: nst1,nst2,nst1p,nst2p
@@ -2723,7 +2723,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 	      mnst2p = get_ang_mom_proj_nr(p2p)
 	      mnst1p = get_ang_mom_proj_nr(p1p)
 
-              call V12me_group(indata,p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
+              call V12me_group(p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
               
               ttt = ttt +  tmp * result
 
@@ -2774,7 +2774,7 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
 
                  
                  !Calculates V12 matrix elements between functions with well defined lm
-                 call V12me_group(indata,p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
+                 call V12me_group(p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
                  
                  ttt = ttt + tmp * result
                  
@@ -2792,13 +2792,13 @@ subroutine H12me_st_group(is,indata,TargetStates1el,bst,nst1,nst2,nst1p,nst2p,re
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
-         Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-	       2*indata%R(ii)*indata%R(jj)*cosij)
+	       cosij = cos(data_in%thetavec(ii))*cos(data_in%thetavec(jj)) + &
+	         sin(data_in%thetavec(ii))*sin(data_in%thetavec(jj))*cos(data_in%phivec(ii)-data_in%phivec(jj))
+         Rij = sqrt(data_in%Rvec(ii)**2 + data_in%Rvec(jj)**2 - &
+	       2*data_in%Rvec(ii)*data_in%Rvec(jj)*cosij)
 	       !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
-            tmp = tmp + (dble(indata%charge(ii)*indata%charge(jj))/Rij) * resultb
+            tmp = tmp + (dble(data_in%charge(ii)*data_in%charge(jj))/Rij) * resultb
          end if
       end do
    end do
@@ -2829,7 +2829,7 @@ end subroutine H12me_st_group
 !$$
 !$$   Uses a mixture of laguerre function with large alpha and 1e molecular orbitals to correctly desribe
 !$$   excited states and improve convergence.
-subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2p,resultH,resultb)
+subroutine H12me_st_group_notortog(is,TargetStates1el,Nmax1el,e1me,ovlpst,bst,nst1,nst2,nst1p,nst2p,repnsp1,repnsp2,repnsp1p,repnsp2p,resultH,resultb)
   
   use basismodule 
   use sturmian_class
@@ -2840,7 +2840,7 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
   implicit none
 
   integer, intent(in):: is
-  type(smallinput):: indata
+  !type(smallinput):: indata
   type(basis_state), intent(in):: TargetStates1el
 	integer:: Nmax1el
 	real*8, dimension(Nmax1el,Nmax1el):: e1me, ovlpst
@@ -2954,7 +2954,7 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
 	            mnst2p = get_ang_mom_proj_nr(p2p)
 	            mnst1p = get_ang_mom_proj_nr(p1p)
 
-              call V12me_group(indata,p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
+              call V12me_group(p1,p2,p1p,p2p,mnst1,mnst2,mnst1p,mnst2p,result)              
               
               ttt = ttt +  tmp * result
 
@@ -3005,7 +3005,7 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
 
                  
                  !Calculates V12 matrix elements between functions with well defined lm
-                 call V12me_group(indata,p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
+                 call V12me_group(p1,p2,p2p,p1p,mnst1,mnst2,mnst2p,mnst1p,result)              
                  
                  ttt = ttt + tmp * result
                  
@@ -3023,13 +3023,13 @@ subroutine H12me_st_group_notortog(is,indata,TargetStates1el,Nmax1el,e1me,ovlpst
    do ii=1, 3
       do jj = ii+1, 3
          !Use law of cosines to compute distance between nuclei
-	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-	         sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
-         Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-	       2*indata%R(ii)*indata%R(jj)*cosij)
+	       cosij = cos(data_in%thetavec(ii))*cos(data_in%thetavec(jj)) + &
+	         sin(data_in%thetavec(ii))*sin(data_in%thetavec(jj))*cos(data_in%phivec(ii)-data_in%phivec(jj))
+         Rij = sqrt(data_in%Rvec(ii)**2 + data_in%Rvec(jj)**2 - &
+	       2*data_in%Rvec(ii)*data_in%Rvec(jj)*cosij)
 	       !Account for degenerate case where nuclei coincide
          if (Rij .gt. 0.0_dpf) then
-            tmp = tmp + (dble(indata%charge(ii)*indata%charge(jj))/Rij) * resultb
+            tmp = tmp + (dble(data_in%charge(ii)*data_in%charge(jj))/Rij) * resultb
          end if
       end do
    end do
@@ -3065,12 +3065,13 @@ end subroutine H12me_st_group_notortog
 ! This subroutine uses either real or complex spherical harmonics in the
 ! expansion of V(1,2), with corresonding gaunt coefficients for each
 ! case.
-subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
+subroutine V12me_group(pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
 
   use basismodule
   use sturmian_class
   use grid_radial 
   use MPI_module
+	use input_data
 
   implicit none
   
@@ -3090,7 +3091,7 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   real*8, dimension(grid%nr):: temp, fun, fun1, fun11
   real*8:: rl1,rl2,rl1p,rl2p,rm1, rm2,rm1p,rm2p
   real*8:: factor, qmin, qmax, q, pi
-  type(smallinput):: indata
+  !type(smallinput):: indata
 
   pi = 4.0d0*atan(1.0d0)
 
@@ -3143,16 +3144,16 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
   lammin=max(abs(l1-l1p),abs(l2-l2p))
   lammax=min(l1+l1p,l2+l2p)
 
-  if (indata%harmop .eq. 1) then
+  if (data_in%harmop .eq. 1) then
      lammin = 0
   end if
 
   do lam=lammin,lammax
-     if (indata%harmop .eq. 0) then
+     if (data_in%harmop .eq. 0) then
 	!Complex harmonics, only one q gives non-zero gaunt coeffs, no loop
 	qmin = lam
 	qmax = lam
-     else if (indata%harmop .eq. 1) then
+     else if (data_in%harmop .eq. 1) then
         !Real harmonics, multiple q give non-zero gaunt coeffs, loop
 	qmin = -lam
 	qmax = lam
@@ -3165,12 +3166,12 @@ subroutine V12me_group(indata,pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
      do q = qmin, qmax
         rlam = lam
 
-        if (indata%harmop .eq. 0) then
+        if (data_in%harmop .eq. 0) then
 	   !Regular gaunt coeffs vanish for q != m1p - m1
            rq = m1p - m1
            tmp1 = (-1)**(nint(rq))*Yint(rl1,rm1,rlam,-rq,rl1p,rm1p)
            tmp2 = Yint(rl2,rm2,rlam,rq,rl2p,rm2p)
-        else if (indata%harmop .eq. 1) then
+        else if (data_in%harmop .eq. 1) then
 	   !Real gaunt coeffs accept four different values of q
            rq = q
            tmp1 = Xint(rl1,rm1,rlam,rq,rl1p,rm1p)

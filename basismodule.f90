@@ -10,164 +10,165 @@ module basismodule
 
    !Type: input
 	 !Purpose: strores program input parameters read in from input file
-	 type smallinput
-      !integer:: N   !Basis size
-	    !integer:: Nalpha !nunber of exponential falloff parameters in input file
-	    !real(dpf), dimension(:), allocatable:: alpha    !Exponential falloff parameters
-	    !integer:: l         !Angular momentum parameter, max l of the basis
-	    !real(dpf):: dr       !radial grid spacing
-	    !real(dpf):: rmax     !number of radial grid points
-	    !integer:: lambdamax  !Maximum lambda in expansion of potential
-	    integer:: harmop     !Option to use real or complex spherical harmonics (1=real, 0=complex)
-	    !Properties and coordinates of each nucleus
-	    integer, dimension(3):: charge  
-	    real(dpf), dimension(3):: R
-	    real(dpf), dimension(3):: theta
-	    real(dpf), dimension(3):: phi
-			!Parameters for isosceles triangle testing case
-			!integer:: isoscop   !(1=use, 0=regular calculation)
-			!integer:: hernandeztest
-			!integer:: isobasisop
-			!integer:: conroybasis
-			!real(dpf):: R1
-			!real(dpf):: R2
-			!integer, dimension(20):: testk, testl, testm
-			!integer, dimension(7):: testlvec, kminvec, kmaxvec
-			!integer:: numtestfuncs
-			!real(dpf):: enparam
+	 !Now deprecated, program uses MCCC input file data.in
+	 !type smallinput
+   !   !integer:: N   !Basis size
+	 !   !integer:: Nalpha !nunber of exponential falloff parameters in input file
+	 !   !real(dpf), dimension(:), allocatable:: alpha    !Exponential falloff parameters
+	 !   !integer:: l         !Angular momentum parameter, max l of the basis
+	 !   !real(dpf):: dr       !radial grid spacing
+	 !   !real(dpf):: rmax     !number of radial grid points
+	 !   !integer:: lambdamax  !Maximum lambda in expansion of potential
+	 !   !integer:: harmop     !Option to use real or complex spherical harmonics (1=real, 0=complex)
+	 !   !Properties and coordinates of each nucleus
+	 !   integer, dimension(3):: charge  
+	 !   real(dpf), dimension(3):: R
+	 !   real(dpf), dimension(3):: theta
+	 !   real(dpf), dimension(3):: phi
+	 ! 	!Parameters for isosceles triangle testing case
+	 ! 	!integer:: isoscop   !(1=use, 0=regular calculation)
+	 ! 	!integer:: hernandeztest
+	 ! 	!integer:: isobasisop
+	 ! 	!integer:: conroybasis
+	 ! 	!real(dpf):: R1
+	 ! 	!real(dpf):: R2
+	 ! 	!integer, dimension(20):: testk, testl, testm
+	 ! 	!integer, dimension(7):: testlvec, kminvec, kmaxvec
+	 ! 	!integer:: numtestfuncs
+	 ! 	!real(dpf):: enparam
 
-	    !integer:: z1         !Charge of nucleus 1
-	    !integer:: z2         !Charge of nucleus 2
-	    !integer:: z3         !Charge of nucleus 3
-	 end type smallinput
+	 !   !integer:: z1         !Charge of nucleus 1
+	 !   !integer:: z2         !Charge of nucleus 2
+	 !   !integer:: z3         !Charge of nucleus 3
+	 !end type smallinput
 
 
 	 contains
 
 
 
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !Subroutine: readInput
-	 !Purpose: reads input parameters from input file
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine readInput(indata)
-			implicit none
-			type(smallinput)::indata
-			integer:: ii
-			real(dpf), dimension(:), allocatable:: temp
-			integer:: counter
-			real(dpf):: angletemp !Temporary storage for angle in degrees
-	                !Used to set parameters in isosceles testing case
-	                real(dpf):: R1, R2, L, RN2, thetaN2
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !!Subroutine: readInput
+	 !!Purpose: reads input parameters from input file
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !subroutine readInput(indata)
+	 ! 	implicit none
+	 ! 	type(smallinput)::indata
+	 ! 	integer:: ii
+	 ! 	real(dpf), dimension(:), allocatable:: temp
+	 ! 	integer:: counter
+	 ! 	real(dpf):: angletemp !Temporary storage for angle in degrees
+	 !               !Used to set parameters in isosceles testing case
+	 !               real(dpf):: R1, R2, L, RN2, thetaN2
 
-			open(20,file="input")
+	 ! 	open(20,file="input")
 
-			!read(20,*) indata%N
-			!read(20,*) indata%Nalpha
+	 ! 	!read(20,*) indata%N
+	 ! 	!read(20,*) indata%Nalpha
 
-			!allocate(indata%alpha(indata%Nalpha))
-			!read(20,*) (indata%alpha(ii), ii=1, indata%Nalpha)
+	 ! 	!allocate(indata%alpha(indata%Nalpha))
+	 ! 	!read(20,*) (indata%alpha(ii), ii=1, indata%Nalpha)
 
-			!read(20,*) indata%l
-			!read(20,*) indata%dr
-			!read(20,*) indata%rmax
-			!read(20,*) indata%lambdamax
-			read(20,*) indata%harmop
-			read(20,*)
-			read(20,*) indata%charge(1)
-			read(20,*) indata%charge(2)
-			read(20,*) indata%charge(3)
-			read(20,*) indata%R(1)
-			read(20,*) indata%R(2)
-			read(20,*) indata%R(3)
-			read(20,*) angletemp
-			indata%theta(1) = pinum*(angletemp/180.0_dpf)
-			read(20,*) angletemp
-			indata%theta(2) = pinum*(angletemp/180.0_dpf)
-			read(20,*) angletemp
-			indata%theta(3) = pinum*(angletemp/180.0_dpf)
-			read(20,*) angletemp
-			indata%phi(1) = pinum*(angletemp/180.0_dpf)
-			read(20,*) angletemp
-			indata%phi(2) = pinum*(angletemp/180.0_dpf)
-			read(20,*) angletemp
-			indata%phi(3) = pinum*(angletemp/180.0_dpf)
-			!read(20,*) 
-			!read(20,*) indata%isoscop
-	    !read(20,*) indata%hernandeztest
-	    !read(20,*) indata%isobasisop
-	    !!read(20,*) indata%conroybasis
-			!read(20,*) indata%R1
-			!read(20,*) indata%R2
-	    !
-!     if (indata%R1 .gt. 2.0_dpf*indata%R2) then
-!		     print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
-!		     stop
-!	    end if
+	 ! 	!read(20,*) indata%l
+	 ! 	!read(20,*) indata%dr
+	 ! 	!read(20,*) indata%rmax
+	 ! 	!read(20,*) indata%lambdamax
+	 ! 	!read(20,*) indata%harmop
+	 ! 	!read(20,*)
+	 ! 	!read(20,*) indata%charge(1)
+	 ! 	!read(20,*) indata%charge(2)
+	 ! 	!read(20,*) indata%charge(3)
+	 ! 	!read(20,*) indata%R(1)
+	 ! 	!read(20,*) indata%R(2)
+	 ! 	!read(20,*) indata%R(3)
+	 ! 	!read(20,*) angletemp
+	 ! 	!indata%theta(1) = pinum*(angletemp/180.0_dpf)
+	 ! 	!read(20,*) angletemp
+	 ! 	!indata%theta(2) = pinum*(angletemp/180.0_dpf)
+	 ! 	!read(20,*) angletemp
+	 ! 	!indata%theta(3) = pinum*(angletemp/180.0_dpf)
+	 ! 	!read(20,*) angletemp
+	 ! 	!indata%phi(1) = pinum*(angletemp/180.0_dpf)
+	 ! 	!read(20,*) angletemp
+	 ! 	!indata%phi(2) = pinum*(angletemp/180.0_dpf)
+	 ! 	!read(20,*) angletemp
+	 ! 	!indata%phi(3) = pinum*(angletemp/180.0_dpf)
+	 ! 	!read(20,*) 
+	 ! 	!read(20,*) indata%isoscop
+	 !   !read(20,*) indata%hernandeztest
+	 !   !read(20,*) indata%isobasisop
+	 !   !!read(20,*) indata%conroybasis
+	 ! 	!read(20,*) indata%R1
+	 ! 	!read(20,*) indata%R2
+	 !   !
+!  !   if (indata%R1 .gt. 2.0_dpf*indata%R2) then
+!	 !      print*, "ERROR: isoscelese triangles with R1 > 2*R2 do &not exist, stopping"
+!	 !      stop
+!	 !   end if
 !
-!			allocate(temp(indata%Nalpha))
-!			temp(:) = 0.0_dpf
-!			temp(:) = indata%alpha(:)
-!			deallocate(indata%alpha)
-!			allocate(indata%alpha(indata%l+1))
-!			
-!			!Method chosen is to change fallof parameter
-!			!every three values of l
-!			counter = 1 
-!			do ii = 1, indata%l+1
-!			   if (mod(ii,3) .eq. 0) then
-!			      counter = counter + 1
-!			   end if
-!			   
-!			   if (counter .le. indata%Nalpha) then
-!			      indata%alpha(ii) = temp(counter)
-!			   else 
-!			      !Use the first alpha as default
-!			      indata%alpha(ii) = temp(1)
-!			   end if
-!			   end do
-!			deallocate(temp)
+!	 ! 	allocate(temp(indata%Nalpha))
+!	 ! 	temp(:) = 0.0_dpf
+!	 ! 	temp(:) = indata%alpha(:)
+!	 ! 	deallocate(indata%alpha)
+!	 ! 	allocate(indata%alpha(indata%l+1))
+!	 ! 	
+!	 ! 	!Method chosen is to change fallof parameter
+!	 ! 	!every three values of l
+!	 ! 	counter = 1 
+!	 ! 	do ii = 1, indata%l+1
+!	 ! 	   if (mod(ii,3) .eq. 0) then
+!	 ! 	      counter = counter + 1
+!	 ! 	   end if
+!	 ! 	   
+!	 ! 	   if (counter .le. indata%Nalpha) then
+!	 ! 	      indata%alpha(ii) = temp(counter)
+!	 ! 	   else 
+!	 ! 	      !Use the first alpha as default
+!	 ! 	      indata%alpha(ii) = temp(1)
+!	 ! 	   end if
+!	 ! 	   end do
+!	 ! 	deallocate(temp)
 !
 
-			!if (indata%isoscop .eq. 1) then
-			!   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
-			!   R1 = indata%R1
-			!	 R2 = indata%R2
-			!	 if (indata%hernandeztest .eq. 1) then
-			!	    R1 = 3.50_dpf
-			!			R2 = 2*R1*sin(pinum/6.0_dpf)
-			!	 end if
+	 ! 	!if (indata%isoscop .eq. 1) then
+	 ! 	!   !Set nuclear coordinates in case where iscosceles triangle testing mode is chosen
+	 ! 	!   R1 = indata%R1
+	 ! 	!	 R2 = indata%R2
+	 ! 	!	 if (indata%hernandeztest .eq. 1) then
+	 ! 	!	    R1 = 3.50_dpf
+	 ! 	!			R2 = 2*R1*sin(pinum/6.0_dpf)
+	 ! 	!	 end if
 
-			!	 L = sqrt(R2**2 - (0.5_dpf*indata%R1)**2)
+	 ! 	!	 L = sqrt(R2**2 - (0.5_dpf*indata%R1)**2)
 
-			!	 indata%R(1) = (2.0_dpf/3.0_dpf)*L
-			!	 RN2 = sqrt((0.5_dpf*R1)**2 + (L/3.0_dpf)**2)
-			!	 indata%R(2) = RN2
-			!	 indata%R(3) = RN2    !Symmetric case
+	 ! 	!	 indata%R(1) = (2.0_dpf/3.0_dpf)*L
+	 ! 	!	 RN2 = sqrt((0.5_dpf*R1)**2 + (L/3.0_dpf)**2)
+	 ! 	!	 indata%R(2) = RN2
+	 ! 	!	 indata%R(3) = RN2    !Symmetric case
 
-      !                           thetaN2 = acos((RN2**2+(2.0_dpf*L/3.0_dpf)**2-R2**2)/(2.0_dpf*RN2*(2.0_dpf*L/3.0_dpf)))
-			!	 indata%theta(1) = 0.0_dpf
-			!	 indata%theta(2) = thetaN2  !acos gives angle in radians
-			!	 indata%theta(3) = thetaN2
-			!	 indata%phi(1) = 0.0_dpf
-			!	 indata%phi(2) = pinum*90.0_dpf/180_dpf 
-			!	 indata%phi(3) = -indata%phi(2)  !Symmetric, x axis orthogonal to plane of molecule
+   !   !                           thetaN2 = acos((RN2**2+(2.0_dpf*L/3.0_dpf)**2-R2**2)/(2.0_dpf*RN2*(2.0_dpf*L/3.0_dpf)))
+	 ! 	!	 indata%theta(1) = 0.0_dpf
+	 ! 	!	 indata%theta(2) = thetaN2  !acos gives angle in radians
+	 ! 	!	 indata%theta(3) = thetaN2
+	 ! 	!	 indata%phi(1) = 0.0_dpf
+	 ! 	!	 indata%phi(2) = pinum*90.0_dpf/180_dpf 
+	 ! 	!	 indata%phi(3) = -indata%phi(2)  !Symmetric, x axis orthogonal to plane of molecule
 
-			!	 !Set up arrays storing indices of basis functions, hardcode
-			!	 !values from Conroy's paper.
-	    !   indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
-	    !   indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
-	    !   indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
-			!	 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
-			!	 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
-			!	 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
-			!	 indata%enparam = -3.788_dpf  !energy (a.u)
-			!	 indata%numtestfuncs = 20
-			!end if
+	 ! 	!	 !Set up arrays storing indices of basis functions, hardcode
+	 ! 	!	 !values from Conroy's paper.
+	 !   !   indata%testm = (/0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, 2, 2, 2, -3, -3/)
+	 !   !   indata%testl = (/0, 0, 0, 0, 0, 2, 2, 2, 4, 1, 1, 1, 1, 3, 3, 2, 2, 2, 3, 3/)
+	 !   !   indata%testk = (/1, 2, 3, 4, 5, 3, 4, 5, 5, 2, 3, 4, 5, 4, 5, 3, 4, 5, 4, 5/)	
+	 ! 	!	 indata%testlvec = (/0, 2, 3, 1, 3, 2, 3/)
+	 ! 	!	 indata%kminvec = (/1, 3, 5, 2, 4, 3, 4/)
+	 ! 	!	 indata%kmaxvec = (/5, 5, 5, 5, 5, 5, 5/)
+	 ! 	!	 indata%enparam = -3.788_dpf  !energy (a.u)
+	 ! 	!	 indata%numtestfuncs = 20
+	 ! 	!end if
 
-			
-			close(20)
-	 end subroutine readInput
+	 ! 	
+	 ! 	close(20)
+	 !end subroutine readInput
 
 
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -525,7 +526,7 @@ module basismodule
 	 !Purpose: evaluates the components in the expansion of the nuclear potential in 
 	 !         real or complex spherical harmonics for use in the structure calculation.
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getVPotNuc(ingrid, VPotTemp, R, theta, phi, z, indata)
+	 subroutine getVPotNuc(ingrid, VPotTemp, R, theta, phi, z)
 	    use grid_radial
 			use input_data
 	    implicit none
@@ -534,7 +535,7 @@ module basismodule
 	    integer:: z
 	    complex(dpf), allocatable, dimension(:,:):: VPotTemp
 	    real(dpf):: R, theta, phi
-	    type(smallinput):: indata
+	    !type(smallinput):: indata
 	    integer:: lambda, lambdaind, q
 	    real(dpf), allocatable, dimension(:):: f
 	    complex(dpf):: Ylm
@@ -548,9 +549,9 @@ module basismodule
 	          f(:) = dble(z)*(min(ingrid%gridr(:),R)**lambda)/(max(ingrid%gridr(:),R)**(lambda+1))
 
 	          do q = -lambda, lambda 
-	             if (indata%harmop .eq. 1) then
+	             if (data_in%harmop .eq. 1) then
 	                VPotTemp(:,lambdaind) = (4.0_dpf*pinum/(2.0_dpf*dble(lambda) + 1.0_dpf))*f(:)*XLM(lambda,q,theta,phi)
-	             else if (indata%harmop .eq. 0) then
+	             else if (data_in%harmop .eq. 0) then
 	                VPotTemp(:,lambdaind) = (4.0_dpf*pinum/(2.0_dpf*dble(lambda) + 1.0_dpf))*f(:)*YLM(lambda,q,theta,phi)
 	             end if
 	             lambdaind = lambdaind + 1
@@ -572,10 +573,10 @@ module basismodule
 	 !         potential. Called to precalculate these matrix elements before their 
 	 !         use in computing potential matrix elements
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getAngular(num_func, angular, l_list, m_list, indata)
+	 subroutine getAngular(num_func, angular, l_list, m_list)
 			use input_data
 	    implicit none
-	    type(smallinput):: indata
+	    !type(smallinput):: indata
 	    real(dpf), dimension(:,:,:):: angular
 	    integer:: num_func
 	    integer, dimension(:):: l_list, m_list
@@ -592,7 +593,7 @@ module basismodule
       jjPrev = -1
 
       !Follow same indexing scheme as basis, specify lambda, then v from -lambda to lambda
-      !$OMP& SHARED(angular, num_func, indata, l_list, m_list, pinum)
+      !$OMP& SHARED(angular, num_func, l_list, m_list, pinum)
       !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(jj, li, mi, lj, mj, lambdaind, lambda, q, overlap)  
       do ii = 1, num_func
 	       !print*, ii
@@ -607,7 +608,7 @@ module basismodule
                   if (((liPrev .eq. li) .and. (miPrev .eq. mi)) .and. ((ljPrev .eq. lj) .and. (mjPrev .eq. mj))) then
                      angular(lambdaind,ii,jj) = angular(lambdaind,iiPrev,jjPrev)
                   else
-                     call callOverlap(overlap,dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj),indata%harmop)
+                     call callOverlap(overlap,dble(li),dble(mi),dble(lambda),dble(q),dble(lj),dble(mj),data_in%harmop)
                      angular(lambdaind,ii,jj) = overlap
                      !print*, li, mi, lambda, q, lj, mj
                      !print*, angular(lambdaind,ii,jj)
@@ -665,7 +666,7 @@ module basismodule
 	 !Purpose: computes the radial matrix elements of the potential VPot, stores 
 	 !         inside array VRadMatEl, assumed to be allocated outside of this function
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getRadMatEl(basis, VPot,ingrid, VRadMatEl, indata)
+	 subroutine getRadMatEl(basis, VPot,ingrid, VRadMatEl)
 	    use grid_radial
 	    use sturmian_class
 			use input_data
@@ -673,7 +674,7 @@ module basismodule
 	    type(rgrid)::ingrid
 	    complex(dpf), dimension(:,:):: VPot
 	    complex(dpf), dimension(:,:,:):: VRadMatEl !Radial matrix elements to compute
-	    type(smallinput):: indata
+	    !type(smallinput):: indata
 	    integer:: n, m !Loop indices
 	    integer:: lambda, q, lambdaind
 	    integer:: numrfuncs
@@ -687,7 +688,7 @@ module basismodule
 
 
 	    !$OMP PARALLEL DO DEFAULT(none) PRIVATE(m, lambda, q, lambdaind, f, i1, i2) &
-	    !$OMP& SHARED(VPot, ingrid, basis, indata, nr, numrfuncs, VRadMatEl, data_in)
+	    !$OMP& SHARED(VPot, ingrid, basis, nr, numrfuncs, VRadMatEl, data_in)
 	    do n = 1, numrfuncs
 	       !print*, n
 	       allocate(f(nr))
@@ -719,14 +720,14 @@ module basismodule
 	 !Note: handles both real and complex spherical harmonics. Formulas are the 
 	 !      same for appropriately calculated VPot and angular integrals
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata, use_list)
+	 subroutine getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, use_list)
 			use input_data
 	    implicit none
 	    integer, dimension(:):: sturm_ind_list
 	    integer:: num_func
 	    complex(dpf), dimension(:,:,:):: VRadMatEl
 	    complex(dpf), dimension(:,:):: V
-	    type(smallinput):: indata
+	    !type(smallinput):: indata
 	    integer:: lambda, lambdaind, q
 	    integer:: ii,jj, n, m
 	    real(dpf), dimension(:,:,:):: angular
@@ -735,7 +736,7 @@ module basismodule
 
 
 	    !!!$OMP PARALLEL DO DEFAULT(none) PRIVATE(jj, n, m, lambdaind, lambda, q, integral) &
-	    !!!$OMP& SHARED(V, indata, num_func, rad_ind_list, nr, angular, pi, use_list)
+	    !!!$OMP& SHARED(V, num_func, rad_ind_list, nr, angular, pi, use_list)
 	    do ii=1, num_func
 	       !print*, ii
 	       do jj = 1, num_func

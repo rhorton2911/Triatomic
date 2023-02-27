@@ -15,7 +15,7 @@ contains
 !Purpose: constructs basis for two electron structure as a mixture of
 !         one-electron laguerre functions and molecular orbitals
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
+subroutine construct_1el_basis_nr_group(Number_one_electron_func,basis)
     use input_data       !data_in, dataMSC
     use grid_radial
     use sturmian_class
@@ -30,7 +30,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     implicit none
 !
     integer:: ii, jj, kk
-    type(smallinput):: indata
+    !type(smallinput):: indata
 		type(basis_sturmian_nr):: basis !Formerly bst_data
 		!Indices for first laguerre basis
     integer, dimension(:), allocatable:: sturm_ind_list_one
@@ -95,19 +95,19 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
 
     if (myid == 0) write(*,'("allocated space for one-electron target states Nmax=",I5)') Number_one_electron_func
 		!Store energy of ionised system, in this case, ionised H3++ (just three protons)
-    if ( sum(indata%R(:)) .gt. 0.0_dpf ) then
+    if ( sum(data_in%Rvec(:)) .gt. 0.0_dpf ) then
        TargetStates%en_ion = 0.0_dpf
        !Loop over nuclei
        do ii=1, 3
           do jj = ii+1, 3
              !Use law of cosines to compute distance between nuclei
-	           cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-	                   sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
-             Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-	           2*indata%R(ii)*indata%R(jj)*cosij)
+	           cosij = cos(data_in%thetavec(ii))*cos(data_in%thetavec(jj)) + &
+	                   sin(data_in%thetavec(ii))*sin(data_in%thetavec(jj))*cos(data_in%phivec(ii)-data_in%phivec(jj))
+             Rij = sqrt(data_in%Rvec(ii)**2 + data_in%Rvec(jj)**2 - &
+	           2*data_in%Rvec(ii)*data_in%Rvec(jj)*cosij)
 	           !Account for degenerate case where nuclei coincide
              if (Rij .gt. 0.0_dpf) then
-                TargetStates%en_ion = TargetStates%en_ion + dble(indata%charge(ii)*indata%charge(jj))/Rij
+                TargetStates%en_ion = TargetStates%en_ion + dble(data_in%charge(ii)*data_in%charge(jj))/Rij
              end if
           end do
        end do
@@ -117,7 +117,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
           
     !Perform one-electron structure calculation and store in TargetStates 
 		print*, "1e STRUCTURE"
-    call one_electron_structure_group(TargetStates, basis, indata, num_func, sturm_ind_list_one, k_list_one, l_list_one, m_list_one)
+    call one_electron_structure_group(TargetStates, basis, num_func, sturm_ind_list_one, k_list_one, l_list_one, m_list_one)
 
 		print*, "SORTING DONE"
     call sort_by_energy_basis_st(TargetStates)
@@ -212,7 +212,7 @@ subroutine construct_1el_basis_nr_group(Number_one_electron_func, indata, basis)
     !Hybrid calculates <Lfp|H|Lf> for e-H2 exchange matrix elements, which will carry through rearrangement      
 		!lagnmax = basis_size(bst_nr)   !old size, with fixed m basis
 		print*, "HYBRID MSC BASIS"
-    call Hybrid_MSCbasis(bst_nr,TargetStates,nst_Basis_MSC,nBasis_MSC,lag_ham1el_m,lagnmax,max_latop, indata, &
+    call Hybrid_MSCbasis(bst_nr,TargetStates,nst_Basis_MSC,nBasis_MSC,lag_ham1el_m,lagnmax,max_latop,&
 			                   m_list_nr, sturm_ind_list_nr)
 
     !Liam added: save the original description of the one-electron states before rearrange is called - needed for natural orbitals
@@ -543,7 +543,7 @@ end subroutine construct_1el_basis_nr_group
 !         a non-linear molecule, using the input laguerre basis. Possibly
 !         subject to symmetry restrictions.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func, sturm_ind_list,k_list, l_list, m_list)  
+subroutine one_electron_structure_group(oneestatebasis, basis, num_func, sturm_ind_list,k_list, l_list, m_list)  
     use grid_radial
     use sturmian_class
 		use input_data
@@ -554,7 +554,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 		use vnc_module
     implicit none
 		!Nuclear coordinates and additional options
-    type(smallinput):: indata
+    !type(smallinput):: indata
 		!Given sturmian basis
     type(basis_sturmian_nr)::basis
     !State basis type for storing one electron states
@@ -705,16 +705,16 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 		num_lambda = (data_in%ltmax+1)**2
     !!Precalculate angular integrals appearing in V-matrix elements
     allocate(angular(num_lambda,num_func,num_func))
-    call getAngular(num_func, angular, l_list, m_list, indata)
+    call getAngular(num_func, angular, l_list, m_list)
  
     !Precalculate radial matrix elements
     allocate(VRadMatEl(num_lambda,basis%n,basis%n))
     VRadMatEl(:,:,:) = 0.0_dpf
     print*, "GET RADIAL MATRIX ELEMENTS"
-    call getRadMatEl(basis, VPot, grid, VRadMatEl, indata)
+    call getRadMatEl(basis, VPot, grid, VRadMatEl)
  
     !If real spherical harmonics are used, V matrix elements will have complex part zero.
-    call getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, indata, use_list)
+    call getVMatEl(sturm_ind_list, V, VRadMatEl, num_func, angular, use_list)
     print*, "V Matrix Elements Computed"
 
  
@@ -731,13 +731,13 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     do ii=1, 3
        do jj = ii+1, 3
           !Use law of cosines to compute distance between nuclei
- 	       cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
- 	               sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
-          Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
- 	       2*indata%R(ii)*indata%R(jj)*cosij)
+ 	       cosij = cos(data_in%thetavec(ii))*cos(data_in%thetavec(jj)) + &
+ 	               sin(data_in%thetavec(ii))*sin(data_in%thetavec(jj))*cos(data_in%phivec(ii)-data_in%phivec(jj))
+          Rij = sqrt(data_in%Rvec(ii)**2 + data_in%Rvec(jj)**2 - &
+ 	       2*data_in%Rvec(ii)*data_in%Rvec(jj)*cosij)
  	       !Account for degenerate case where nuclei coincide
           if (Rij .gt. 0.0_dpf) then
-             realH(:,:) = realH(:,:) + realB(:,:)*dble(indata%charge(ii)*indata%charge(jj))/Rij
+             realH(:,:) = realH(:,:) + realB(:,:)*dble(data_in%charge(ii)*data_in%charge(jj))/Rij
           end if
        end do
     end do
@@ -891,7 +891,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
        deallocate(no1,no2,mo1,mo2,phase)
     end do
 
-    if((.not. (sum(indata%R(:)) .gt. 0.0_dpf)) .and. (writeWaveFunc)) then
+    if((.not. (sum(data_in%Rvec(:)) .gt. 0.0_dpf)) .and. (writeWaveFunc)) then
        write(filename,'(A13,I0,A4)') 'oneeradfuncN=', num_func, ".txt"
        filename=TRIM(filename)
        open(77,file=filename) 
@@ -941,7 +941,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     !Write energes of states to file
     open(80,file="1eenergies.txt")
     write(80,*) "State Energies (Ha)"
-    write(80,*) "R1=", indata%R(1), " R2=", indata%R(2), "R3=", indata%R(3)
+    write(80,*) "R1=", data_in%Rvec(1), " R2=", data_in%Rvec(2), "R3=", data_in%Rvec(3)
     write(80,*) "N (index), E(Ha)"
     do ii = 1, min(nstates, 100)
        write(80,*) ii, energies(ii)
@@ -956,7 +956,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
  !Purpose: merges the one-electron molecular orbitals and the second laguerre basis
  !         into a single basis for use in the two electron-structure calculation
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- subroutine Hybrid_MSCbasis(bst,TargetStates,Nmax,NBasisTwo,lag_ham1el_m,Lag_nmax,maxL,indata,&
+ subroutine Hybrid_MSCbasis(bst,TargetStates,Nmax,NBasisTwo,lag_ham1el_m,Lag_nmax,maxL,&
 			                      m_list_nr, sturm_ind_list_nr)
     use input_data
 		use basismodule
@@ -968,7 +968,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
     
     implicit none
 
-		type(smallinput):: indata
+		!type(smallinput):: indata
     type(basis_sturmian_nr), intent(in) :: bst   ! this is Sturmian basis 
     type(basis_state), intent(inout) :: TargetStates
     integer, intent(inout):: Nmax, NBasisTwo
@@ -1015,19 +1015,19 @@ subroutine one_electron_structure_group(oneestatebasis, basis, indata, num_func,
 
     !!$ create target state basis of size Nmax
     call new_basis_st(TargetStates,Nmax,hlike,basis_type)
-    if ( sum(indata%R(:)) .gt. 0.0_dpf ) then
+    if ( sum(data_in%Rvec(:)) .gt. 0.0_dpf ) then
        TargetStates%en_ion = 0.0_dpf
        !Loop over nuclei
        do ii=1, 3
           do jj = ii+1, 3
              !Use law of cosines to compute distance between nuclei
-	           cosij = cos(indata%theta(ii))*cos(indata%theta(jj)) + &
-	                   sin(indata%theta(ii))*sin(indata%theta(jj))*cos(indata%phi(ii)-indata%phi(jj))
-             Rij = sqrt(indata%R(ii)**2 + indata%R(jj)**2 - &
-	           2*indata%R(ii)*indata%R(jj)*cosij)
+	           cosij = cos(data_in%thetavec(ii))*cos(data_in%thetavec(jj)) + &
+	                   sin(data_in%thetavec(ii))*sin(data_in%thetavec(jj))*cos(data_in%phivec(ii)-data_in%phivec(jj))
+             Rij = sqrt(data_in%Rvec(ii)**2 + data_in%Rvec(jj)**2 - &
+	           2*data_in%Rvec(ii)*data_in%Rvec(jj)*cosij)
 	           !Account for degenerate case where nuclei coincide
              if (Rij .gt. 0.0_dpf) then
-                TargetStates%en_ion = TargetStates%en_ion + dble(indata%charge(ii)*indata%charge(jj))/Rij
+                TargetStates%en_ion = TargetStates%en_ion + dble(data_in%charge(ii)*data_in%charge(jj))/Rij
              end if
           end do
        end do

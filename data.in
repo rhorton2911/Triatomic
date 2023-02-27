@@ -19,6 +19,7 @@ END
 #For more misc options affecting numerical details of the calculation see CALCULATION_OPTIONS below
 CALCULATION_MODES
   COORDINATE_SYSTEM         : SPHERICAL               #Can be SPHERICAL / SPHEROIDAL
+	SPHERICAL_HARMONICS       : REAL                    #Can be REAL or COMPLEX, affects non-linear targets only
   SCATTERING                : ON                      #Set to ON for scattering calculations, OFF for structure only
   COMBINE_POTL_FILES        : OFF                     #Combine potl files from two different partial-wave expansions
   ANALYTICAL_BORN_ONLY      : OFF                     #Stop after Born ICS file is made
@@ -38,7 +39,7 @@ OUTPUT
 END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
-  LMAX                      : 7                       #Max orbital angular momentum, l=0,...,LMAX
+  LMAX                      : 3                       #Max orbital angular momentum, l=0,...,LMAX
   BASIS_SIZE                : 30-l   #60-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
@@ -141,4 +142,21 @@ PSEUDO_POTENTIAL
   BETA1                     : 1.607
   B2                        : 0.0
   BETA2                     : 0.0
+END
+
+
+NUCLEAR_COORDINATES                      #Non-linear mode nuclear coordinates and charges
+  NUM_NUCLEI                : 3
+  Z1                        : 1
+	Z2                        : 1
+	Z3                        : 1
+	R1                        : 0.9526279
+	R2                        : 0.9526279
+	R3                        : 0.9526279
+	THETA1                    : 0.0
+	THETA2                    : 120.0
+	THETA3                    : 120.0
+	PHI1                      : 0.0
+	PHI2                      : 90.0
+	PHI3                      : -90.0
 END

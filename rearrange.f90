@@ -1,5 +1,5 @@
 !--------------------------------------------------------------------------------------------------------
-subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlimmin,hamlimmax,lag_ham1el_m,totfuncs,m_list_nr, sturm_ind_list_nr)
+subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlimmin,hamlimmax,lag_ham1el_m, totfuncs,m_list_nr, sturm_ind_list_nr)
 !!$ OneState is a pointer to one target state, and bst_nr is its single particle basis for  target states
 !!$ will return back bst_nr which contains the new single particle basis (an array of sturmian_nr structure)
   
@@ -15,6 +15,8 @@ subroutine rearrange(bst_nr,LMAX,TargetStates,use_lag_ham1el,basissize_nr,hamlim
   integer, intent(in):: Lmax   ! max L valus in one-electron basis bst
   type(basis_state), intent(inout):: TargetStates
   logical, intent(in):: use_lag_ham1el ! switch use lag_ham1el_m - Laguerre basis <Lp|H|L> 
+
+	!Reese: added different limits to lag_ham1el, as bst_nr includes m in polyatomic case
 	integer, intent(in):: hamlimmin, hamlimmax, basissize_nr
   real*8, dimension(basissize_nr,basissize_nr,hamlimmin:hamlimmax), intent(in), optional :: lag_ham1el_m  ! 
 

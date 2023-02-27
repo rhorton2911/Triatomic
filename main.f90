@@ -39,7 +39,7 @@ program H3Plus
    implicit none
 
 	 type(basis_sturmian_nr):: basis 
-	 type(smallinput)::indata
+	 !type(smallinput)::indata
    
    integer:: nr  !number of radial grid points
    integer:: ii, jj, kk
@@ -72,17 +72,18 @@ program H3Plus
    !Initialise data type containing rgrid and integration weights, global variable ( ): ) in grid_radial module
    call setgrids(grid)
 
-   call readInput(indata)
+	 !All data now in data.in MCCC input file
+   !call readInput(indata)
 
-   if (indata%harmop .eq. 0) then
+   if (data_in%harmop .eq. 0) then
       !Molecule has C_s symmetry if:
       !(1)  R_2 != R_3
       !(2)  nuclei 2 and 3 are not symmetric about z-axis
       !(3)  nucleus 1 does not lie on z-axis (should never happen)
       !Matrix elements have non-zero complex part in C_s symmetry
-      if (((abs(indata%R(2) - indata%R(3)) .gt. 0.0_dpf) .or. &
-         (abs(abs(indata%theta(2)) - abs(indata%theta(3))) .gt. 0.0_dpf)) .or. &
-         (abs(indata%theta(1)) + abs(indata%phi(1))) .gt. 0.0_dpf) then
+      if (((abs(data_in%Rvec(2) - data_in%Rvec(3)) .gt. 0.0_dpf) .or. &
+         (abs(abs(data_in%thetavec(2)) - abs(data_in%thetavec(3))) .gt. 0.0_dpf)) .or. &
+         (abs(data_in%thetavec(1)) + abs(data_in%phivec(1))) .gt. 0.0_dpf) then
          print*, "WARNING: complex spherical harmonics not yet implemented for C_s geometries. Stopping."	
          error stop
       end if
@@ -90,7 +91,7 @@ program H3Plus
 
 	 !------------------------------ Set up nuclear potential ------------------------------!
 	 nr = size(grid%gridr)
-   call construct_vnc_group(nr,grid%gridr,indata)
+   call construct_vnc_group(nr,grid%gridr)
 
    !Set up nuclear potential stored in vnc_module, use formula: SUM_l=0^l=L (2l+1) = (L+1)^2
 !	 nr = grid%nr
@@ -129,10 +130,10 @@ program H3Plus
 
   
    !Modified version of subroutine in one_electron_func.f90, constructs basis for use in 2e configs
-   call construct_1el_basis_nr_group(-1,indata,basis)
+   call construct_1el_basis_nr_group(-1,basis)
 
    !Custom version of the structure12 subroutine tailored to non-linear molecules
-   call structure12group(basis,TargetStates,basis%n,indata)
+   call structure12group(basis,TargetStates,basis%n)
 
    !--------------------End Two Electron Structure------------------!
 

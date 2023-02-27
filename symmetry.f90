@@ -65,12 +65,76 @@ module symmetry
 			 end if
    end subroutine init_group
 
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: construct_rep
+	 !Purpose: calculates the matrix representation of the operator C_II using the
+	 !         wigner-d matrices and characters for each group element.
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine construct_rep(self, subgroup)
+			 implicit none
+			 !Data for the group and subgroup used to distinguish components of degenerate irreps
+			 type(group):: self, subgroup  
+
+
+
+
+
+
+
+
+   end subroutine construct_rep
+
+
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: project
-	 !Purpose: computes the matrix elements of the operator C_II, used to
+	 !Purpose: computes diagonalises the matrix representation of the operator C_II, used to
 	 !         project a space of functions onto group irreps.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine project(CMat, 
+	 subroutine project(CMat, spacedim, self, coeffs)
+	     implicit none
+			 integer:: spacedim   !Size of the basis set to be projected
+			 real(dpf), dimension(spacedim,spacedim):: CMat
+			 real(dpf), dimension(spacedim,spacedim):: coeffs 
+			 type(group):: self
+       !Required inputs for lapack routine dsygvx
+       real(dpf):: abstol
+       real(dpf), dimension(:), allocatable:: w, work
+       integer, dimension(:), allocatable:: iwork, ifail
+       integer:: info, lwork, nfound
+       real(dpf), external :: DLAMCH
+
+       allocate(work(1))
+       allocate(w(spacedim))    !Stores eigenvalues
+       allocate(iwork(5*spacedim))
+       allocate(ifail(spacedim))
+			 if (allocated(coeffs)) then
+					deallocate(coeffs)
+			 end if
+			 allocate(coeffs(spacedim,spacedim))
+       lwork = -1
+       abstol = 2.0_dpf*DLAMCH('S') !twice underflow threshold for doubles
+       info = 0
+       nfound = 0
+        		 
+       !Workspace query with lwork=-1
+       call DSYGVX(1, 'V', 'I', 'U', spacedim, CMat, spacedim, b, spacedim,    &
+       0.0_dpf, 0.0_dpf, 1, spacedim, abstol, nfound, w, coeffs, spacedim, work, lwork, &
+       iwork, ifail, info)
+       
+       lwork = int(work(1))
+       deallocate(work)
+       allocate(work(lwork))
+       
+       !Perform diagonialisation
+       call DSYGVX(1, 'V', 'I', 'U', spacedim, CMat, spacedim, b, spacedim,    &
+       0.0_dpf, 0.0_dpf, 1, spacedim, abstol, nfound, w, coeffs, spacedim, work, lwork, &
+       iwork, ifail, info) 
+       deallocate(work, iwork, ifail, w)
+ 
+
+   end subroutine project
 
 	 
 

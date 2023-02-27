@@ -4,7 +4,7 @@
 !!$
 !!$ vdcore(r) = -(N_core_el)/r + Vcore_electrons(r) + pol(r)
 
-  subroutine construct_vnc_group(nr, gridr, indata)
+  subroutine construct_vnc_group(nr, gridr)
     use input_data
     use vnc_module
     use MPI_module
@@ -23,7 +23,7 @@
     real*8:: Z1, Z2, Zasym
     logical :: core
 
-		type(smallinput):: indata  !Contains nuclear coords for H3+
+		!type(smallinput):: indata  !Contains nuclear coords for H3+
 		integer:: vncsize
 		integer:: vlim1, vlim2
 
@@ -66,7 +66,7 @@
        write(*,*) "Setting up nuclear potential: even and odd terms, with a loop over projection mu (no good parity or m)"
     endif
 
-    call  VLambdaMuR_group(nr,gridr,vlim1,vlim2,lamtop_vc, data_in%Rd, Z1, Z2, vnc,minvnc,maxvnc,lamtop_vc_set, indata)
+    call  VLambdaMuR_group(nr,gridr,vlim1,vlim2,lamtop_vc, data_in%Rd, Z1, Z2, vnc,minvnc,maxvnc,lamtop_vc_set)
    
     if ((data_in%N_core_el > 0 .and..not.data_in%pseudo_pot) .and. (data_in%good_m)) then
       call make_vdcore
@@ -119,14 +119,14 @@
   end subroutine construct_vnc_group
  !------------------------------------------------------------------------------
 
-    subroutine VLambdaMuR_group(maxr,gridr,vlim1,vlim2,lambda_max, Rd, Z1_in, Z2_in, vlr,minvnc,maxvnc, lamtop_vc_set, indata)
+    subroutine VLambdaMuR_group(maxr,gridr,vlim1,vlim2,lambda_max, Rd, Z1_in, Z2_in, vlr,minvnc,maxvnc, lamtop_vc_set)
       use MPI_module
       use input_data
 			use basismodule
 			use grid_radial
       implicit none
 
-			type(smallinput):: indata  !Contains nuclear coordinates
+			!type(smallinput):: indata  !Contains nuclear coordinates
       
       integer, intent(in):: maxr
       real*8, dimension(maxr),intent(in):: gridr
@@ -144,7 +144,7 @@
       real*8:: const1, r, Rdh, Zcoef, Rd1, Rd2, origin
       real*8, dimension(maxr):: temp
 
-			integer:: num_lambda, harm, ii, nr
+			integer:: num_lambda, ii, nr
       complex*16, dimension(:,:), allocatable:: VPot, VPotTemp
 
       if(data_in%pseudo_pot .and. .false.) then
@@ -265,8 +265,8 @@
 
          allocate(VPotTemp(nr,num_lambda))
          do ii = 1, 3
-            call getVPotNuc(grid, VPotTemp, indata%R(ii), indata%theta(ii), &
-                     indata%phi(ii), indata%charge(ii), indata)
+            call getVPotNuc(grid, VPotTemp, data_in%Rvec(ii), data_in%thetavec(ii), &
+                     data_in%phivec(ii), data_in%charge(ii))
             VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
          end do
          deallocate(VPotTemp)
@@ -278,8 +278,8 @@
             maxvnc(i) = i2
 				 end do
 
-      	 harm = indata%harmop
-      	 data_in%harmop = harm
+      	 !harm = indata%harmop
+      	 !data_in%harmop = harm
       	 deallocate(VPot)
 			end if
 

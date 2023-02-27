@@ -25,6 +25,8 @@ cp input "$scratchDir"/
 cd "$scratchDir"
 
 rm RVals.txt
+rm jobidlist
+rm cleanupid
 idString=""
 for R in "${RVals[@]}"
 do
@@ -41,6 +43,7 @@ do
    #Remove previous pbs output files
    rm *.e*
    rm *.o*
+	 rm *.trace
 
    #For an equilateral triangle, (r value of vertex)=(side length)/sqrt(3)
    r1=$( echo "scale=6; ${R}/sqrt(3)" | bc | awk '{printf "%.5f\n", $0}')  
@@ -57,6 +60,7 @@ do
    #Submit PBS jobscript 
    job=$(qsub -N H3+StructureR"${R}" /g/data/d35/rh5686/Triatomic/jobscripts_gadi/runJob.sh)
    jobId=$( echo "$job" | cut -d "." -f1)
+	 echo "$jobID" >> ../jobidlist
 
    idString+=":$jobId"
  
@@ -64,4 +68,6 @@ do
 done
 
 echo "$idString"
-qsub -N H3+Cleanup -W depend=afterok"${idString}" /g/data/d35/rh5686/Triatomic/jobscripts_gadi/collectData.sh
+job=$(qsub -N H3+Cleanup -W depend=afterok"${idString}" /g/data/d35/rh5686/Triatomic/jobscripts_gadi/collectData.sh)
+jobId=$( echo "$job" | cut -d "." -f1)
+echo "$jobId" > cleanupid

@@ -131,6 +131,13 @@ module input_data
 		 !Spherical harmonic options
 		 integer:: harmop
 
+		 !Nuclear coordinates in non-linear mode
+		 integer:: numnuclei
+     integer, dimension(3):: charge  
+     real*8, dimension(3):: Rvec
+     real*8, dimension(3):: thetavec
+     real*8, dimension(3):: phivec
+
   end type input
 
 
@@ -260,6 +267,7 @@ contains
     logical :: star, star_prev, use_second_basis, core_input
 
     type(basis_input), pointer :: basis_1e_pntr, basis_2e_pntr, sub_basis_2e_pntr
+		real*8:: pi = 4.0d0*atan(1.0d0)
 
     self%eV=27.21138505d0
     self%eV_old=27.2116d0
@@ -390,6 +398,18 @@ contains
                     self%calculation_type = 2
                   case default
                     if(myid==0) call report('invalid coordinate system')
+                    error stop
+                end select
+						  case('SPHERICAL_HARMONICS') 
+                if(nitems /= 3) call nitem_error(label,block)
+                call readu(w1)
+								select case(w1)
+								  case('REAL')
+										 self%harmop = 1
+									case('COMPLEX')
+										 self%harmop = 0
+									case default
+                    if(myid==0) call report('invalid spherical harmonic option')
                     error stop
                 end select
               case('SCATTERING')
@@ -1701,6 +1721,51 @@ contains
 
             enddo
 
+			  case('NUCLEAR_COORDINATES')
+			     do
+              call read_line(eof,nfile)
+              if(eof) call eof_during_block(block)
+              call read_label(label,block)
+              if(nitems /= 3 .and. trim(adjustl(label)) /= 'END') call nitem_error(label,block)
+							select case(label)
+							   case('NUM_NUCLEI')
+                    call readi(self%numnuclei)
+							   case('Z1')
+                    call readi(self%charge(1))
+							   case('Z2')
+                    call readi(self%charge(2))
+							   case('Z3')
+                    call readi(self%charge(3))
+							   case('R1')
+                    call readf(self%Rvec(1))
+							   case('R2')
+                    call readf(self%Rvec(2))
+							   case('R3')
+                    call readf(self%Rvec(3))
+							   case('THETA1')
+                    call readf(self%thetavec(1))
+							   case('THETA2')
+                    call readf(self%thetavec(2))
+							   case('THETA3')
+                    call readf(self%thetavec(3))
+							   case('PHI1')
+                    call readf(self%phivec(1))
+							   case('PHI2')
+                    call readf(self%phivec(2))
+							   case('PHI3')
+                    call readf(self%phivec(3))
+							   case('END')
+										if (self%numnuclei .ne. 3) then
+											 if(myid==0) write(*,*) '*** ERROR reading input: NUM_NUCLEI in NUCLEAR_COORDINATES block must be equal to three' 
+											 error stop
+									  end if
+										self%thetavec(:) = pi*(self%thetavec(:)/180.0d0)
+										self%phivec(:) = pi*(self%phivec(:)/180.0d0)
+							      exit
+				         case default
+                    call invalid_label_in_block(label,block)
+						  end select
+			     end do
 
         case default 
           if(myid==0) write(*,*) '*** ERROR reading input: Invalid block "'//trim(adjustl(block))//'"'
