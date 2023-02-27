@@ -1280,17 +1280,17 @@ contains
 
 
 		!$OMP PARALLEL DO DEFAULT(SHARED) &
-		!$OMP PRIVATE(stateNum,energy,m,par,nFunc,i,j,CI,spectroMat,spectroVec,naVec,sumVec,l,specInd,lPrev,mPrev,maxInd,lSearch,mSearch,lmind,lind,mind,n,stateObj,stateObj2)
+		!$OMP PRIVATE(stateNum,energy,m,par,nFunc,i,j,CI,spectroMat,spectroVec,naVec,sumVec,l,specInd,lPrev,mPrev,maxInd,lSearch,mSearch,lmind,lind,mind,n)
     do stateNum = 1, basis_size_st(self)   ! Loop through all the states.
 
-       stateObj => self%b(stateNum)   ! Pointer to the current state object.
-       energy = get_energy(stateObj)   ! Energy of the state.
-       m = get_ang_mom_proj(stateObj)   ! Angular momentum projection.
-       par = get_par(stateObj)   ! Parity (+1 or -1) of the state.
-       nFunc = get_nam_st(stateObj)   
+       !stateObj => self%b(stateNum)   ! Pointer to the current state object. Deprecated, openmp can't handle private data structures
+       energy = get_energy(self%b(stateNum))   ! Energy of the state.
+       m = get_ang_mom_proj(self%b(stateNum))   ! Angular momentum projection.
+       par = get_par(self%b(stateNum))   ! Parity (+1 or -1) of the state.
+       nFunc = get_nam_st(self%b(stateNum))   
 
        allocate( naVec(nFunc), spectroMat(nFunc,nFunc), sumVec(nFunc) )
-       naVec = stateObj%na
+       naVec = self%b(stateNum)%na
        !spectroMat(:,:) = bst%ortint(naVec(:),naVec(:))
 			 !SpectroMat should be initialised to overlap matrix of sturmian basis
 			 spectroMat(:,:) = 0d0
@@ -1304,7 +1304,7 @@ contains
 
 			 !Spectrofactor_lm = sum_{i,j st li=lj=l mi=mj=m} c_i c_j S_ij
        do i = 1, nFunc
-          CI = get_CI(stateObj,i)
+          CI = get_CI(self%b(stateNum),i)
           spectroMat(i,:) = CI * spectroMat(i,:)
           spectroMat(:,i) = CI * spectroMat(:,i)
        end do
@@ -1371,24 +1371,24 @@ contains
 			 m = mSearch 
 
        n = l + 1   ! Ensures n is greater than l.
-       stateObj%l = l   ! Assigns a value of l to the state.
-			 stateObj%M = m   ! Assigns a value of m to the state.
+       self%b(stateNum)%l = l   ! Assigns a value of l to the state.
+			self%b(stateNum)%M = m   ! Assigns a value of m to the state.
 
        do i = 1, stateNum-1   ! Search through previous states to generate n.
-          stateObj2 => self%b(i)
-          if ( get_l_majconf(stateObj2)==l .and. get_ang_mom_proj(stateObj2)==m ) n=n+1
+          !stateObj2 => self%b(i)
+          if ( get_l_majconf(self%b(i))==l .and. get_ang_mom_proj(self%b(i))==m ) n=n+1
        enddo
-       stateObj%n = n
+       self%b(stateNum)%n = n
        !Liam commented below so inum retains definition of index within target symmetry
        !stateObj%inum = n - l ! Mark addition inum = k of Laguerre function 
 			 if (data_in%good_m) then
-          stateObj%label = make_label_1e(n,l,m)
+          self%b(stateNum)%label = make_label_1e(n,l,m)
 			 else
-					stateObj%label = "   -   "
+				  self%b(stateNum)%label = "   -   "
 			 end if
 
        !write(10,'(5I4,A7,F10.5,99F8.4)') stateNum, n,l,m,par, stateObj%label, energy, spectroVec(l), sum(spectroVec), spectroVec
-       write(10,'(5I4,A7,F10.5,99F9.5)') stateNum, n,l,m,par, stateObj%label, energy, spectroVec(maxInd), sum(spectroVec), spectroVec
+       write(10,'(5I4,A7,F10.5,99F9.5)') stateNum, n,l,m,par, self%b(stateNum)%label, energy, spectroVec(maxInd), sum(spectroVec), spectroVec
        deallocate(naVec, spectroMat, sumVec, spectroVec)
 
     enddo ! stateNum
