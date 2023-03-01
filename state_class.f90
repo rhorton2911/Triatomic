@@ -1372,7 +1372,7 @@ contains
 
        n = l + 1   ! Ensures n is greater than l.
        self%b(stateNum)%l = l   ! Assigns a value of l to the state.
-			self%b(stateNum)%M = m   ! Assigns a value of m to the state.
+			 self%b(stateNum)%M = m   ! Assigns a value of m to the state.
 
        do i = 1, stateNum-1   ! Search through previous states to generate n.
           !stateObj2 => self%b(i)

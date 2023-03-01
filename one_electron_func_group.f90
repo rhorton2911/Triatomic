@@ -1202,8 +1202,7 @@ subroutine one_electron_structure_group(oneestatebasis, basis, num_func, sturm_i
       !$OMP PARALLEL DO DEFAULT(SHARED) & 
       !$OMP PRIVATE(nstj,i,j,ma,Ham,ni,Ci,nj,Cj,mi,mj,sturmi,sturmj) &
       !$OMP SCHEDULE(DYNAMIC)
-      do nsti = 1, Nmax
-         !state_i => TargetStates%b(nsti)
+      do nsti = 1, Nmax !state_i => TargetStates%b(nsti)
          !ma = state_i%m
 				 ma = TargetStates%b(nsti)%m
 				 if (.not. data_in%good_m) then

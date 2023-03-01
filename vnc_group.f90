@@ -265,8 +265,7 @@
 
          allocate(VPotTemp(nr,num_lambda))
          do ii = 1, 3
-            call getVPotNuc(grid, VPotTemp, data_in%Rvec(ii), data_in%thetavec(ii), &
-                     data_in%phivec(ii), data_in%charge(ii))
+            call getVPotNuc(grid, VPotTemp, data_in%Rvec(ii), data_in%thetavec(ii), data_in%phivec(ii), data_in%charge(ii))
             VPot(:,:) = VPot(:,:) + VPotTemp(:,:)
          end do
          deallocate(VPotTemp)

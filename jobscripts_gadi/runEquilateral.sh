@@ -21,7 +21,7 @@ fi
 cd "$codeDir"
 cp H3Plus "$scratchDir"/
 cp data.in "$scratchDir"/
-cp input "$scratchDir"/
+#cp input "$scratchDir"/
 cd "$scratchDir"
 
 rm RVals.txt
@@ -35,7 +35,7 @@ do
       mkdir "R${R}"
    fi
 
-   cp input "R${R}"/
+   #cp input "R${R}"/
    cp data.in "R${R}"/
    echo "${R}" >> RVals.txt
    cd "R${R}"
@@ -48,14 +48,17 @@ do
    #For an equilateral triangle, (r value of vertex)=(side length)/sqrt(3)
    r1=$( echo "scale=6; ${R}/sqrt(3)" | bc | awk '{printf "%.5f\n", $0}')  
 
-   l1=$(grep -n "R1" input | cut -d ":" -f1) #linenumber of R1 variable
+   l1=$(grep -n "R1" data.in | cut -d ":" -f1) #linenumber of R1 variable
    l2=$(echo "$l1 + 1" | bc)
    l3=$(echo "$l2 + 1" | bc)
 
    #Replace lines with nuclear r coordinates
-   sed -i "${l1}s/.*/${r1}   R1/" input
-   sed -i "${l2}s/.*/${r1}   R2/" input
-   sed -i "${l3}s/.*/${r1}   R3/" input 
+   #sed -i "${l1}s/.*/${r1}   R1/" data.in
+   #sed -i "${l2}s/.*/${r1}   R2/" data.in
+   #sed -i "${l3}s/.*/${r1}   R3/" data.in
+	 sed -i "${l1}s/:.*/: ${r1}/" data.in  #Sed regex: .=any character, *=any number of occurences => .*= any number of any character (includes whitespace)
+	 sed -i "${l2}s/:.*/: ${r1}/" data.in
+	 sed -i "${l3}s/:.*/: ${r1}/" data.in
 
    #Submit PBS jobscript 
    job=$(qsub -N H3+StructureR"${R}" /g/data/d35/rh5686/Triatomic/jobscripts_gadi/runJob.sh)
