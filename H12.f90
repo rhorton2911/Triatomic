@@ -964,6 +964,11 @@ subroutine structure12group(basis,oneestates,num_states)
     real*8:: tmpCI2
     type(sturmian_nr), pointer:: p2 
 		integer:: Nmax1el
+		!For timing code with basis size when scheduler kills interactive jobs
+    character(len=8):: date1
+    character(len=10):: time1
+    character(len=5):: zone1
+    integer, dimension(8):: values1
 			
     !do ii = 1, oneestates%Nmax
     !   print*, oneestates%b(ii)%energy
@@ -1042,6 +1047,10 @@ subroutine structure12group(basis,oneestates,num_states)
 
              if (myid==0) write(*,*) 'Spin = ', is
              if (myid==0) write(*,*) 'Number of 2e configurations = ', numcon
+
+             call date_and_time(date1,time1,zone1,values1)
+						 print*, "TIME: ", time1
+						 print*, "VALUES: (HR), (MIN), (SEC)", values1(5), values1(6), values1(7) 
 
              !Declare H and b matrices
              allocate(H(numcon,numcon), b(numcon,numcon))
@@ -1138,6 +1147,14 @@ subroutine structure12group(basis,oneestates,num_states)
              0.0_dpf, 0.0_dpf, 1, numcon, abstol, nfound, w, ci, numcon, work, lwork, &
              iwork, ifail, info) 
              deallocate(work, iwork, ifail)
+
+
+						 print*, "DIAGONALISED"
+             call date_and_time(date1,time1,zone1,values1)
+						 print*, "TIME: ", time1
+						 print*, "VALUES: (HR), (MIN), (SEC)", values1(5), values1(6), values1(7) 
+
+
 
              !Save results of diagonalisation in TargetStates2el
              if (allocated(phase)) then
