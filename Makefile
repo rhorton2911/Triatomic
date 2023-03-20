@@ -14,7 +14,8 @@ SCATOBJ=vnc_module.o one_electron_func_module.o state_class_module.o osc.o osc12
 
 #Compiling Legendre.f90 into Legendre.o will automatically produce the .mod files for all modules within.  #Matrix_Print.o Data_Module.o Associated_Legendre_Functions.o Special_Functions.o \  #Contained in Legendre.f90
 LEGACYHELPER=wigner.o plql.o intp.o rsg.o 
-OBJ= $(LEGACYHELPER) $(MCCCOBJ) basismodule.o $(STATECLASSOBJ) main.o
+SYMMETRY= wignerd_small.o realharms.o symmetry.o
+OBJ= $(LEGACYHELPER) $(MCCCOBJ) basismodule.o $(STATECLASSOBJ) $(SYMMETRY) main.o
 
 #---------------------Choose compiler name depnding on machine ---------------------#
 HOSTNAME=$(shell hostname)
@@ -35,7 +36,7 @@ FLAGS= -Wall -Wno-tabs -pedantic -fimplicit-none  -fopenmp -g #-Werror
 ERRFLAGS1= -Wextra -fcheck=all -fbacktrace -Waliasing -Winteger-division -fbounds-check
 ERRFLAGS= $(ERRFLAGS1) -Wsurprising  -fstack-check #--fpe-trap=invalid,zero,overflow
 #Comment out errflags when not debugging
-CFLAGS=$(FLAGS)  #$(ERRFLAGS) 
+CFLAGS=$(FLAGS) $(ERRFLAGS) 
 MCFLAGS = $(CFLAGS) -ffree-line-length-512
 
 all: $(EXEC)
@@ -54,6 +55,15 @@ basismodule.o: wigner.f plql.f numbers.f90 basismodule.f90
 
 numbers.o: numbers.f90
 	$(FC) $(CFLAGS) -c numbers.f90
+
+realharms.o: realharms.f90
+	$(FC) $(CFLAGS) -c realharms.f90
+
+symmetry.o: symmetry.f90 realharms.f90
+	$(FC) $(CFLAGS) -c symmetry.f90
+
+wignerd_small.o: wignerd_small.f90
+	$(FC) $(CFLAGS) -ffree-line-length-none -w -c wignerd_small.f90
 
 #################################MCCC Modules##########################################
 #MCCC code has a lot of dependencies. .o files in MCCOBJ are listed in order of depenencies

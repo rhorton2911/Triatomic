@@ -567,6 +567,8 @@ subroutine structure12
 !               print*, e1me(:,jj)
 !             enddo
 !             print*, ''
+
+
                 
              call dsygvx( 1, 'V', 'I', 'U', ncm, H, ncm, b, ncm, 0.0d0,0.0d0, 1,ncm, 2*DLAMCH('S'), &
                &NFOUND, w, CI, ncm, WORK, LWORK, IWORK, IFAIL, ioerr)
@@ -1113,14 +1115,14 @@ subroutine structure12group(basis,oneestates,num_states)
              !   close(90)
              !end if 
 
-						 !print*, "H Matrix"
-						 !do ii = 1, numcon
-						 ! 	print*, H(ii,:)
-						 !end do
-						 !print*, "b Matrix"
-						 !do ii = 1, numcon
-						 ! 	print*, b(ii,:)
-						 !end do
+						 print*, "H Matrix"
+						 do ii = 1, numcon
+						  	print*, H(ii,:)
+						 end do
+						 print*, "b Matrix"
+						 do ii = 1, numcon
+						  	print*, b(ii,:)
+						 end do
 
              !Diagonalise two electron hamiltonian to obtain H3+ electronic states 
              allocate(work(1))
@@ -2894,6 +2896,7 @@ subroutine H12me_st_group_notortog(is,TargetStates1el,Nmax1el,e1me,ovlpst,bst,ns
 
      !resultb = 1d0
      !oneelME = get_energy_st(TargetStates1el%b(nst1)) + get_energy_st(TargetStates1el%b(nst2))
+		 print*, "OVLP: ", ovlpst(nst1,nst1p), ovlpst(nst2,nst2p)
 
      resultb = ovlpst(nst1,nst1p) * ovlpst(nst2,nst2p)
 
@@ -2921,6 +2924,7 @@ subroutine H12me_st_group_notortog(is,TargetStates1el,Nmax1el,e1me,ovlpst,bst,ns
      ! all is already done...  
   else
      !<a1 a2 | ..| b1 b2>
+		 print*, repnsp1, repnsp2p, repnsp2, repnsp1p
      if(repnsp1 .eq. repnsp2p .and. repnsp2 .eq. repnsp1p) then
 
         resultb = resultb + (-1)**(is) * ovlpst(nst1,nst2p) * ovlpst(nst2,nst1p)
@@ -2930,6 +2934,7 @@ subroutine H12me_st_group_notortog(is,TargetStates1el,Nmax1el,e1me,ovlpst,bst,ns
         
         oneelme =  oneelme + (-1)**(is) * e1me(nst2,nst1p) *  ovlpst(nst1,nst2p) ! ovlp_st(TargetStates1el%b(nst1),TargetStates1el%b(nst2p)) *  H1el_st(TargetStates1el%b(nst2),TargetStates1el%b(nst1p))
 
+				print*, "FINAL B: ", resultb
 
 		 !if (nst2 .eq. 4) then
 		 ! 	print*, "PART 2 NST, NST2P", nst2, nst2p
@@ -3167,13 +3172,13 @@ subroutine V12me_group(pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
 
   do lam=lammin,lammax
      if (data_in%harmop .eq. 0) then
-	!Complex harmonics, only one q gives non-zero gaunt coeffs, no loop
-	qmin = lam
-	qmax = lam
+	      !Complex harmonics, only one q gives non-zero gaunt coeffs, no loop
+	      qmin = lam
+	      qmax = lam
      else if (data_in%harmop .eq. 1) then
         !Real harmonics, multiple q give non-zero gaunt coeffs, loop
-	qmin = -lam
-	qmax = lam
+	      qmin = -lam
+	      qmax = lam
      else
         print*, "ERROR: neither real nor complex harmonics selected, stopping. V12me_group"
         error stop
@@ -3184,18 +3189,18 @@ subroutine V12me_group(pn1,pn2,pn1p,pn2p,m1,m2,m1p,m2p,result)
         rlam = lam
 
         if (data_in%harmop .eq. 0) then
-	   !Regular gaunt coeffs vanish for q != m1p - m1
+	         !Regular gaunt coeffs vanish for q != m1p - m1
            rq = m1p - m1
            tmp1 = (-1)**(nint(rq))*Yint(rl1,rm1,rlam,-rq,rl1p,rm1p)
            tmp2 = Yint(rl2,rm2,rlam,rq,rl2p,rm2p)
         else if (data_in%harmop .eq. 1) then
-	   !Real gaunt coeffs accept four different values of q
+	         !Real gaunt coeffs accept four different values of q
            rq = q
            tmp1 = Xint(rl1,rm1,rlam,rq,rl1p,rm1p)
            tmp2 = Xint(rl2,rm2,rlam,rq,rl2p,rm2p)
            factor = 4*pi/dble(2*lam+1) !4pi/(2l+1) not included in Xint
            tmp1 = tmp1*factor
-	end if
+	      end if
 
         tmp = tmp1 * tmp2
 

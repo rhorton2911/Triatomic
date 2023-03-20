@@ -5,7 +5,7 @@
 
 SCATTERING_SYSTEM
   TARGET                    : H3+                      #Target molecule name (H2+ / H2 / HeH+) - this determines target charge parameters
-  INTERNUCLEAR_SEPARATION   : 1.455                   #Separation between nuclei (in bohr radii)
+  INTERNUCLEAR_SEPARATION   : 0.0     #1.455                  #Separation between nuclei (in bohr radii)
   ORIGIN                    : 0.5                     #Position of spherical-coordinate origin (between 0 and 1, 0.5 = geometric centre of nuclei)
   PROJECTILE                : ELECTRON                #Projectile name (ELECTRON / POSITRON)
   ENERGY                    : 21.0 eV                 #Projectile incident energy (can specify eV or Hartree)
@@ -39,20 +39,20 @@ OUTPUT
 END
 
 FIRST_DIAGONALISATION_BASIS                           #Laguerre basis used for diagonalising one-electron Hamiltonian
-  LMAX                      : 7                       #Max orbital angular momentum, l=0,...,LMAX
-  BASIS_SIZE                : 30-l   #60-l                    #Number of basis functions per l
-  EXPONENTIAL_FALLOFF       : 3.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
+  LMAX                      : 0                       #Max orbital angular momentum, l=0,...,LMAX
+  BASIS_SIZE                : 10-l   #60-l                    #Number of basis functions per l
+  EXPONENTIAL_FALLOFF       : 1.0   #2.2                     #Exponential falloffs per l (spherical) or per m (spheroidal)
 END
 ONE_ELECTRON_STATES                                   #Choose which one-electron states to keep
-  M_MAX                     : 1                       #Maximum orb. ang. mom. proj. of one-electron states to keep (specify a number or "ALL")
-  NST_POS_PAR               : 1, 0                    #Number of states (per M) for positive parity. 
-  NST_NEG_PAR               : 1, 0                    #Number of states (per M) for negative parity
+  M_MAX                     : 0                       #Maximum orb. ang. mom. proj. of one-electron states to keep (specify a number or "ALL")
+  NST_POS_PAR               : 1                      #Number of states (per M) for positive parity. 
+  NST_NEG_PAR               : 0                      #Number of states (per M) for negative parity
 END                                                   #If the system does not have good parity then both pos/neg are summed to give the total number of states
 
 SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for two-electron diagonalisation (or maybe second one-electron diagonalisation) 
   USE_SECOND_BASIS          : ON                      #If OFF then the one-electron states kept from the first diagonalisation form the basis for the second diagonalisation
-  LMAX                      : 4                       #Max l of Laguerre functions
-  BASIS_SIZE                : 30-l   #50-l                    #Number of basis functions per l
+  LMAX                      : 0                       #Max l of Laguerre functions
+  BASIS_SIZE                : 2-l                    #Number of basis functions per l
   EXPONENTIAL_FALLOFF       : 0.8                     #Exponential falloffs per l (spherical) or per m (spheroidal)
   
   INSERT_ONE_EL_STATES      : 1                       #Number of one-electron states from first diagonalisation to insert in second basis
@@ -65,8 +65,8 @@ SECOND_DIAGONALISATION_BASIS                          #Smaller basis used for tw
 
   USE_SUB_BASIS             : OFF                      #Define an additional basis which replaces Laguerre functions from main second basis
   SUB_LMAX                  : 0  #3                       #Lmax of the sub basis
-  SUB_BASIS_SIZE            : 3  #, 2, 3, 1              #Number of funcions (per l) in the sub basis
-  SUB_BASIS_EXP_FALLOFF     : 2.0 #, 2.0, 2.0, 2.0      #Exponential fallofs per l (spherical) or per m (spheroidal) for the sub basis
+  SUB_BASIS_SIZE            : 0  #, 2, 3, 1              #Number of funcions (per l) in the sub basis
+  SUB_BASIS_EXP_FALLOFF     : 0                        #Exponential fallofs per l (spherical) or per m (spheroidal) for the sub basis
 END
 
 TWO_ELECTRON_CONFIGURATIONS                           #Choose how the two-electron configurations are built from the one-electron basis
@@ -150,9 +150,9 @@ NUCLEAR_COORDINATES                      #Non-linear mode nuclear coordinates an
   Z1                        : 1
 	Z2                        : 1
 	Z3                        : 1
-	R1                        : 0.9526279
-	R2                        : 0.9526279
-	R3                        : 0.9526279
+	R1                        : 2.8
+	R2                        : 2.8
+	R3                        : 2.8
 	THETA1                    : 0.0
 	THETA2                    : 120.0
 	THETA3                    : 120.0

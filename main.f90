@@ -35,6 +35,7 @@ program H3Plus
    use basismodule
    use numbers
 	 use vnc_module     !Stores nuclear potential vnc
+	 use symmetry
    use ieee_arithmetic
    implicit none
 
@@ -58,6 +59,8 @@ program H3Plus
    !Variables to control file io
    integer:: si, sj
 	 integer:: harm
+	 !For symmetry adaptation
+	 type(group):: symgroup
 
 
    !Intrinsic date and time subroutine
@@ -71,6 +74,17 @@ program H3Plus
    call readin( data_in, 10, 1)
    !Initialise data type containing rgrid and integration weights, global variable ( ): ) in grid_radial module
    call setgrids(grid)
+
+
+	 print*, "TESTING SYMMETRY ADAPTATION"
+	 print*, "INIT"
+	 call init_group(symgroup, "D3h") 
+	 call construct_rep(symgroup, 3) !Test l=0
+   
+	 print*, "END ADAPTATION TESTING, main.f90: line 65-ish"
+	 stop
+
+
 
 	 !All data now in data.in MCCC input file
    !call readInput(indata)

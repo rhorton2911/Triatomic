@@ -742,6 +742,12 @@ subroutine one_electron_structure_group(oneestatebasis, basis, num_func, sturm_i
        end do
     end do
     print*, "NUCLEAR INTERACTION CALCULATED"
+
+		!print*, "ONE E STRUCTURE HAMILTONIAN, line 746"
+		!do ii = 1, size(realH(:,1))
+		!	 print*, realH(ii,:)
+	  !end do
+		!stop
  
 
     !Check for infinite values to be safe. Sometimes results from use of older versions of Yint 
