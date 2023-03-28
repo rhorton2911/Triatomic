@@ -76,10 +76,9 @@ program H3Plus
    call setgrids(grid)
 
 
-	 print*, "TESTING SYMMETRY ADAPTATION"
-	 print*, "INIT"
-	 call init_group(symgroup, "D3h") 
-	 call construct_rep(symgroup, 3) !Test l=0
+	 call init_group(symgroup, "C2v") 
+	 call construct_harmonics(symgroup)
+	 !call construct_rep(symgroup, 1) !Test l=0
    
 	 print*, "END ADAPTATION TESTING, main.f90: line 65-ish"
 	 stop

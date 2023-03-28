@@ -21,6 +21,7 @@ module symmetry
 				 integer, dimension(:,:), allocatable:: lamtable  !Eigenvalue table for the group
 				 real*8, dimension(:,:), allocatable:: euler !euler angles of the elements of classes defining irreps (alpha, beta, gamma)
 				 integer, dimension(:), allocatable:: parities !equals 1 or 0 depending on whether or not, elements of class contain inversion
+				 integer, dimension(:), allocatable:: primea   !prime number coefficient of class operator
 				 integer:: numops !number of group operations stored in euler
 
 				 !Group operator C
@@ -81,8 +82,6 @@ module symmetry
 					self%numops = 4
 					self%euler(:,:) = 0.0d0
 
-					print*, "CHECK getEulerAngles WORKS!!!"
-					!call getEulerAngles(0.0d0,0.0d0,1.0d0,pi, temp)             !sigma_h = I * R
 					call axistoeuler(0.0d0, 0.0d0, pi,self%euler(1,:))
 					call axistoeuler(pi/2.0d0, pi, pi, self%euler(2,:))                  !C_2,1
 					call axistoeuler(pi/2.0d0, 2.0d0*pi/3.0d0, pi, self%euler(3,:))   !C_2,2
@@ -91,6 +90,49 @@ module symmetry
 					allocate(self%parities(self%numops))
 					self%parities(1) = 1
 					self%parities(2:4) = 0
+
+					allocate(self%primea(self%numops))
+					self%primea(:) = 1 
+
+			 else if (trim(groupname) .eq. "C2v") then
+					print*, "C2v"
+					numirrs = 4
+					self%numirreps = numirrs
+			    allocate(self%irrlabel(numirrs), self%chartable(numirrs,numirrs), self%dims(numirrs), self%lamtable(numirrs,numirrs))
+					allocate(self%conorder(numirrs))
+					self%irrlabel(1) = 'A1'
+					self%irrlabel(2) = 'A2'
+					self%irrlabel(3) = 'B1' 
+					self%irrlabel(4) = 'B2' 
+
+					self%chartable(1,1:4) = (/1,  1,  1,  1/)
+					self%chartable(2,1:4) = (/1,  1, -1, -1/)
+					self%chartable(3,1:4) = (/1, -1,  1, -1/)
+					self%chartable(4,1:4) = (/1, -1, -1,  1/)
+
+					self%dims(1:4) = (/1, 1, 1, 1/)
+					self%conorder(1:4) = (/1, 1, 1, 1/)
+
+					do jj = 1, numirrs  !classes
+					   self%lamtable(:,jj) = self%chartable(:,jj)*self%conorder(jj)/self%dims(:)
+				  end do
+
+					!Choose the classes K_3 and K_4, both plane reflections. In this case, choose C_{C_2v} = K_3 + 3 K_4
+					allocate(self%euler(2,3))
+					self%numops = 2
+					self%euler(:,:) = 0.0d0
+
+					call axistoeuler(pi/2.0d0, pi/2.0d0, pi, self%euler(1,:))
+					call axistoeuler(pi/2.0d0, 0.0d0, pi, self%euler(2,:))
+
+					allocate(self%parities(self%numops))
+					self%parities(1) = 1
+					self%parities(2) = 1
+
+					allocate(self%primea(self%numops))
+					self%primea(1) = 1 
+					self%primea(2) = 3
+
 			 else if (trim(groupname) .eq. "C3v") then
 					print*, "C3v"
 					print*, "C3v not yet working, symmetry.f90 line 96"
@@ -130,11 +172,39 @@ module symmetry
 
 					allocate(self%parities(self%numops))
 					self%parities(:) = 1
+
+
+					allocate(self%primea(self%numops))
+					self%primea(:) = 1
 			 else
 					print*, "ERROR: groups other than D3h not yet implemented, stopping."
 					stop
 			 end if
    end subroutine init_group
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: construct_harmonics
+	 !Purpose: constructs the set of expansion coefficients a^{\mu}_{lm} for the
+	 !         symmetry adapted spherical harmonics for a given point group G up to 
+	 !         the specified lmax.
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine construct_harmonics(self)
+			use input_data
+			implicit none
+			type(group):: self
+			integer:: maxl, maxnum, l
+
+		  maxl = max(data_in%latop, data_in%Lpmax, data_in%l12max)
+			maxnum = (maxl+1)**2
+			allocate(self%coeffs(1:maxnum,1:maxnum,0:maxl))
+			self%coeffs(:,:,:) = 0.0d0
+
+			do l = 0, maxl
+				 call construct_rep(self,l)
+			end do
+
+	 end subroutine construct_harmonics
 
 
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -162,121 +232,86 @@ module symmetry
 
 			 !Construct C for the given l, 2l+1 values of m
 			 numfuncs = (2*l+1)
-			 if (data_in%harmop .eq. 1) then
-          allocate(C(numfuncs,numfuncs), CReal(numfuncs,numfuncs), eigs(numfuncs), coeffs(numfuncs,numfuncs))
-					allocate(opMat(numfuncs,numfuncs))
-					C(:,:) = 0.0d0
+       allocate(C(numfuncs,numfuncs), CReal(numfuncs,numfuncs), eigs(numfuncs), coeffs(numfuncs,numfuncs))
+			 allocate(opMat(numfuncs,numfuncs))
+			 C(:,:) = 0.0d0
+			 opMat(:,:) = 0.0d0
+
+
+       m1ind = 0
+			 do ii = 1, self%numops
+          par = 1
+          par = (-1)**(l*self%parities(ii))  !If ii contains an inversion, multiply by (-1)^l
+          t = self%euler(ii,2) 
 					opMat(:,:) = 0.0d0
 
-					!<Y_l mf | C | Y_l mi>
-					!m1ind = 0
-					!do m1 = -l, l
-					!	 m1ind = m1ind + 1
-					!   m2ind = 0
-					!	 do m2 = -l, l
-					!			m2ind = m2ind + 1
-					!			do ii = 1, self%numops 
-					!				 par = 1
-					!				 par = (-1)**(l*self%parities(ii))  !If ii contains an inversion, multiply by (-1)^l
-					!				 t = self%euler(ii,2) 
-					!				 littled = wigd(l ,m1, m2, t)
-					!				 !print*, "Vals: : ", self%euler(ii,3), self%euler(ii,2), self%euler(ii,1), littled
-					!				 !D matrix formula taken from A. R. Edmonds: Angular momentum in quantum mechanics
-					!         C(m1ind,m2ind) = C(m1ind,m2ind) + &
-					!						dble(par) * CDEXP(-i*self%euler(ii,3)*cmplx(m2)) * littled * CDEXP(-i*self%euler(ii,1)*cmplx(m1))
-					!		  end do
-					!	 end do
-				  !end do
+				  m1ind = 0
+          do m1 = -l, l
+             m1ind = m1ind + 1
+             m2ind = 0
+             do m2 = -l, l
+             	  m2ind = m2ind + 1
+             	  littled = wigd(l ,m1, m2, t)
+             	  !print*, "Vals: : ", self%euler(ii,3), self%euler(ii,2), self%euler(ii,1), littled
 
-          m1ind = 0
-					do ii = 1, self%numops
-             par = 1
-             par = (-1)**(l*self%parities(ii))  !If ii contains an inversion, multiply by (-1)^l
-             t = self%euler(ii,2) 
-						 opMat(:,:) = 0.0d0
-
-						 m1ind = 0
-             do m1 = -l, l
-             	  m1ind = m1ind + 1
-                m2ind = 0
-             	  do m2 = -l, l
-             			 m2ind = m2ind + 1
-             			 littled = wigd(l ,m1, m2, t)
-             			 !print*, "Vals: : ", self%euler(ii,3), self%euler(ii,2), self%euler(ii,1), littled
-
-             			 !D matrix formula taken from Varsholovich: Quantum Theory of Angular Momentum
-									 opMat(m1ind,m2ind) = dble(par) * CDEXP(-i*self%euler(ii,3)*cmplx(m2)) * littled * CDEXP(-i*self%euler(ii,1)*cmplx(m1))
-                   !C(m1ind,m2ind) = C(m1ind,m2ind) + &
-             	  end do
+             	  !D matrix formula taken from Varsholovich: Quantum Theory of Angular Momentum
+							  opMat(m1ind,m2ind) = dble(par) * CDEXP(-i*self%euler(ii,3)*cmplx(m2)) * littled * CDEXP(-i*self%euler(ii,1)*cmplx(m1))
+                !C(m1ind,m2ind) = C(m1ind,m2ind) + &
              end do
+          end do
 
-   					!!Transform into real spherical harmonic basis: C' = V_(l) C V_(l)^(transpose)
-   					!allocate(V(numfuncs,numfuncs))
-   					!muind = 0
-   					!do mu = -l, l
-   					!	 muind = muind + 1
-   					!	 mind = 0
-   					!	 do m = -l, l
-   					!			mind = mind + 1
-   					!			V(muind,mind) = VCoeff(dble(m),dble(mu))
-   					!	 end do
-   				  !end do
-   					!!Get C in real harmonic representation by changing basis
-   					!!C = matmul(CONJG(TRANSPOSE(V)), matmul(C, V))
-   					!opMat = matmul(V,matmul(opMat, CONJG(TRANSPOSE(V))))
-   					!!C = CONJG(TRANSPOSE(V))* C * V
-   					!deallocate(V)
-
-						!print*, "OP: "
-						!do m1 = 1, numfuncs
-						! 	print*, opMat(ii,:)
-						!end do
-						C(:,:) = C(:,:) + opMat(:,:)
-				  end do
+				  C(:,:) = C(:,:) + dble(self%primea(ii)) * opMat(:,:)
+			 end do
          
-					!Transform into real spherical harmonic basis: C' = V_(l) C V_(l)^(transpose)
-					allocate(V(numfuncs,numfuncs))
-					muind = 0
-					do mu = -l, l
-						 muind = muind + 1
-						 mind = 0
-						 do m = -l, l
-								mind = mind + 1
-								V(muind,mind) = VCoeff(dble(m),dble(mu))
-						 end do
-				  end do
-					!Get C in real harmonic representation by changing basis
-					!C = matmul(CONJG(TRANSPOSE(V)), matmul(C, V))
-					C = matmul(V,matmul(C, CONJG(TRANSPOSE(V))))
-					!C = CONJG(TRANSPOSE(V))* C * V
-					deallocate(V)
+			 if (data_in%harmop .eq. 1) then
+			    !Transform into real spherical harmonic basis: C' = V_(l) C V_(l)^(transpose)
+			    allocate(V(numfuncs,numfuncs))
+			    muind = 0
+			    do mu = -l, l
+			    	 muind = muind + 1
+			    	 mind = 0
+			    	 do m = -l, l
+			    			mind = mind + 1
+			    			V(muind,mind) = VCoeff(dble(m),dble(mu))
+			    	 end do
+			    end do
+			    !Get C in real harmonic representation by changing basis: C' = VCV^T
+			    C = matmul(V,matmul(C, CONJG(TRANSPOSE(V))))
+			    deallocate(V)
 
-				  !If done correctly, matrix will be real valued in real harmonic representation
-					if (any(abs(AIMAG(C)) .gt. 10e-5)) then
-						 print*, "ERROR: real harmonic representation has non-zero imaginary part, STOPPING"
-						 error stop
+			    !If done correctly, matrix will be real valued in real harmonic representation
+			    if (any(abs(AIMAG(C)) .gt. 10e-5)) then
+			    	 print*, "ERROR: real harmonic representation has non-zero imaginary part, STOPPING"
+			    	 error stop
+			    end if
+			 end if
+			 CReal(:,:) = REAL(C)
+
+	     !Save eigenvector coefficients and eigenvalues
+	     coeffs(:,:) = 0.0d0
+	     eigs(:) = 0.0d0
+	     call project(CReal, numfuncs, coeffs, eigs) 
+
+			 !Correct sign problem 
+			 do m = 1, numfuncs
+			    if (sum(coeffs(:,m)) .lt. 0.0d0) then
+				     coeffs(:,m) = (-1.0d0)*coeffs(:,m)
 				  end if
-					CReal(:,:) = REAL(C)
+			 end do
 
-					!Save eigenvector coefficients and eigenvalues
-					coeffs(:,:) = 0.0d0
-					eigs(:) = 0.0d0
-					call project(CReal, numfuncs, coeffs, eigs) 
-				  do m = 1, numfuncs
-						 print*, coeffs(m,:)
+			 !Set very small coefficients to zero to correct for precision loss
+			 do m = 1, numfuncs
+					do mu = 1, numfuncs
+						 if (abs(coeffs(m,mu)) .lt. 10e-5) then
+								coeffs(m,mu) = 0.0d0
+						 end if
 				  end do
-				  print*, "L: ", l
-				  print*, eigs
-				  stop
-				 
-					print*, "FINISH SYMMETRY ADAPTATION CODE, line 193 symmetry.f90"
-					stop
+			 end do
 
-					deallocate(C, CReal)
-			else
-				 print*, "ERROR: symmetry projection not yet implemented for complex spherical harmonics, STOPPING"
-				 error stop
-			end if
+			 !Save expansion coefficients
+			 self%coeffs(1:numfuncs,1:numfuncs,l) = coeffs(1:numfuncs,1:numfuncs)
+				 
+			 deallocate(C, CReal)
 
    end subroutine construct_rep
 
@@ -337,10 +372,6 @@ module symmetry
        call DSYEV('V', 'U', spacedim, CMat, spacedim, w, work, lwork, info)
 
 		   eigs(:) = w(:)
-			 !do ii =1, spacedim
-			 ! 	print*, CMat(ii,:)
-			 ! 	print*, coeffs(ii,:)
-			 !end do
 			 coeffs(:,:) = CMat(:,:)
 
 			 !deallocate(id)
