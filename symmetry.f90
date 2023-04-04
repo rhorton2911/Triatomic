@@ -14,21 +14,39 @@ module symmetry
 			type, public:: group
 			   character(len=6):: groupname  !name of the group
 				 integer:: numirreps
-			   character(len=6), dimension(:), allocatable:: irrlabel !Labels for the irreps
-				 integer, dimension(:,:), allocatable:: chartable  !Character table for the group
-				 integer, dimension(:), allocatable:: dims !dimension of each representation
-				 integer, dimension(:), allocatable:: conorder !order of each conjugacy class
-				 integer, dimension(:,:), allocatable:: lamtable  !Eigenvalue table for the group
-				 real*8, dimension(:,:), allocatable:: euler !euler angles of the elements of classes defining irreps (alpha, beta, gamma)
-				 integer, dimension(:), allocatable:: parities !equals 1 or 0 depending on whether or not, elements of class contain inversion
-				 integer, dimension(:), allocatable:: primea   !prime number coefficient of class operator
+			   character(len=6), dimension(:), allocatable:: irrlabel !Irrep labels
+				 integer, dimension(:,:), allocatable:: chartable       !Character table
+				 integer, dimension(:), allocatable:: dims              !dimension of each representation
+				 integer, dimension(:), allocatable:: conorder          !order of each conjugacy class
+				 integer, dimension(:,:), allocatable:: lamtable        !Eigenvalue table 
+				 real*8, dimension(:,:), allocatable:: euler            !euler angles of the elements of classes defining irreps (alpha, beta, gamma)
+				 integer, dimension(:), allocatable:: parities          !equals 1 or 0 depending on whether or not, elements of class contain inversion
+				 integer, dimension(:), allocatable:: primea            !prime number coefficients of class operator
 				 integer:: numops !number of group operations stored in euler
 
-				 !Group operator C
+				 !Expansion coefficients of symmetry adapted harmonics
 				 real*8, dimension(:,:,:), allocatable:: coeffs
 
 
 			end type group
+
+
+			!Canonical chain of groups: G > H1 > H2 > ...
+			type, public:: groupchain
+				 integer:: numgroups
+				 type(group), dimension(:), allocatable:: chain
+         !Frequency of occurrence of subgroup irreps in group irreps (subduced representation)
+				 real*8, dimension(:,:,:), allocatable:: amat   !index=(group, group irreps, subgroup irreps)
+				 integer, dimension(:,:), allocatable:: subconjarray
+
+				 !Expansion coefficients of symmetry adapted harmonics
+				 real*8, dimension(:,:,:), allocatable:: coeffs
+
+
+	    end type
+
+
+
 
 			contains
 
@@ -46,6 +64,8 @@ module symmetry
 			 integer:: numirrs, jj
 			 real*8:: pi=4.0d0*atan(1.0d0)
 			 real*8, dimension(3):: temp 
+
+			 print*, "Constructing Symmetry Group: ", groupname
 
 			 temp(:) = 0.0d0
 			 if (trim(groupname) .eq. "D3h") then
@@ -94,8 +114,12 @@ module symmetry
 					allocate(self%primea(self%numops))
 					self%primea(:) = 1 
 
+					!allocate(self%subnames(1))
+					!self%subnames(1) = "C2v"
+					!
+					!allocate(self%amat(1,self%numirreps, 4))
+
 			 else if (trim(groupname) .eq. "C2v") then
-					print*, "C2v"
 					numirrs = 4
 					self%numirreps = numirrs
 			    allocate(self%irrlabel(numirrs), self%chartable(numirrs,numirrs), self%dims(numirrs), self%lamtable(numirrs,numirrs))
@@ -133,55 +157,147 @@ module symmetry
 					self%primea(1) = 1 
 					self%primea(2) = 3
 
-			 else if (trim(groupname) .eq. "C3v") then
-					print*, "C3v"
-					print*, "C3v not yet working, symmetry.f90 line 96"
-					error stop
-					numirrs = 3
-			    self%numirreps = numirrs
-			    allocate(self%irrlabel(numirrs), self%chartable(numirrs,numirrs), self%dims(numirrs), self%lamtable(numirrs,numirrs))
-					allocate(self%conorder(numirrs))
-					self%irrlabel(1) = 'A1'
-					self%irrlabel(2) = 'A2'
-					self%irrlabel(3) = 'E'
+			! else if (trim(groupname) .eq. "C3v") then
+			!		print*, "C3v"
+			!		print*, "C3v not yet working, symmetry.f90 line 96"
+			!		error stop
+			!		numirrs = 3
+			!    self%numirreps = numirrs
+			!    allocate(self%irrlabel(numirrs), self%chartable(numirrs,numirrs), self%dims(numirrs), self%lamtable(numirrs,numirrs))
+			!		allocate(self%conorder(numirrs))
+			!		self%irrlabel(1) = 'A1'
+			!		self%irrlabel(2) = 'A2'
+			!		self%irrlabel(3) = 'E'
 
-					self%chartable(1,1:3) = (/1,  1,  1/)
-					self%chartable(2,1:3) = (/1,  1, -1/)
-					self%chartable(3,1:3) = (/2, -1,  0/)
+			!		self%chartable(1,1:3) = (/1,  1,  1/)
+			!		self%chartable(2,1:3) = (/1,  1, -1/)
+			!		self%chartable(3,1:3) = (/2, -1,  0/)
 
-					self%dims(1:3) = (/1, 1, 2/)
-					self%conorder(1:3) = (/1, 2, 3/)
+			!		self%dims(1:3) = (/1, 1, 2/)
+			!		self%conorder(1:3) = (/1, 2, 3/)
 
-					do jj = 1, numirrs  !classes
-					   self%lamtable(:,jj) = self%chartable(:,jj)*self%conorder(jj)/self%dims(:)
-				  end do
+			!		do jj = 1, numirrs  !classes
+			!		   self%lamtable(:,jj) = self%chartable(:,jj)*self%conorder(jj)/self%dims(:)
+			!	  end do
 
-					!As per Lemus' paper, the eigenvalues of classes sigma_h and 3sigma_v can be used 
-					!to uniquely label representations. Group operator C_{D_3h} = K_3 + K_4 has 
-					!unique eigenvalues for all irreps.
-					!Euler angles of class 3C_2 and sigma_h
-					allocate(self%euler(3,3))
-					self%numops = 3
-					self%euler(:,:) = 0.0d0
-					call axistoeuler(pi/2.0d0, pi/2.0d0, pi, self%euler(1,:))         !sigma_v,1
-					call axistoeuler(pi/2.0d0, 5.0d0*pi/6.0d0, pi, self%euler(2,:))   !sigma_v,2
-					call axistoeuler(pi/2.0d0, -5.0d0*pi/6.0d0, pi, self%euler(3,:))  !sigma_v,3
-					print*, self%euler(1,:)
-					print*, self%euler(2,:)
-					print*, self%euler(3,:)
+			!		!As per Lemus' paper, the eigenvalues of classes sigma_h and 3sigma_v can be used 
+			!		!to uniquely label representations. Group operator C_{D_3h} = K_3 + K_4 has 
+			!		!unique eigenvalues for all irreps.
+			!		!Euler angles of class 3C_2 and sigma_h
+			!		allocate(self%euler(3,3))
+			!		self%numops = 3
+			!		self%euler(:,:) = 0.0d0
+			!		call axistoeuler(pi/2.0d0, pi/2.0d0, pi, self%euler(1,:))         !sigma_v,1
+			!		call axistoeuler(pi/2.0d0, 5.0d0*pi/6.0d0, pi, self%euler(2,:))   !sigma_v,2
+			!		call axistoeuler(pi/2.0d0, -5.0d0*pi/6.0d0, pi, self%euler(3,:))  !sigma_v,3
+			!		print*, self%euler(1,:)
+			!		print*, self%euler(2,:)
+			!		print*, self%euler(3,:)
 
-					allocate(self%parities(self%numops))
-					self%parities(:) = 1
+			!		allocate(self%parities(self%numops))
+			!		self%parities(:) = 1
 
 
-					allocate(self%primea(self%numops))
-					self%primea(:) = 1
+			!		allocate(self%primea(self%numops))
+			!		self%primea(:) = 1
 			 else
-					print*, "ERROR: groups other than D3h not yet implemented, stopping."
+					print*, "ERROR: groups other than D3h and C2v not yet implemented, stopping."
 					stop
 			 end if
    end subroutine init_group
 
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: destruct_group
+	 !Purpose: deallocates all allocated memory used by the given group object
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine destruct_group(self)
+			implicit none
+			type(group):: self
+
+			if (allocated(self%irrlabel)) then
+				 deallocate(self%irrlabel)
+			end if
+			if (allocated(self%chartable)) then
+				 deallocate(self%chartable)
+			end if
+			if (allocated(self%dims)) then
+				 deallocate(self%dims)
+			end if
+			if (allocated(self%conorder)) then
+				 deallocate(self%conorder)
+			end if
+			if (allocated(self%lamtable)) then
+				 deallocate(self%lamtable)
+			end if
+			if (allocated(self%euler)) then
+				 deallocate(self%euler)
+			end if
+			if (allocated(self%parities)) then
+				 deallocate(self%parities)
+			end if
+			if (allocated(self%primea)) then
+				 deallocate(self%primea)
+			end if
+			if (allocated(self%coeffs)) then
+				 deallocate(self%coeffs)
+			end if
+
+   end subroutine destruct_group
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: construct_chain
+	 !Purpose: constructs a canonical chain of groups given the input group name, which
+	 !         stays at the top of the chain
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine construct_chain(self, groupname)
+			implicit none
+			character(len=3):: groupname
+			type(groupchain):: self
+			integer:: ii, numirrs1, numirrs2, numirrs
+			integer, dimension(:,:), allocatable:: temp
+
+			if (TRIM(groupname) .eq. "D3h") then
+				 self%numgroups = 2
+				 allocate(self%chain(2))
+				 call init_group(self%chain(1), "D3h")
+				 call init_group(self%chain(2), "C2v")
+				 allocate(self%subconjarray(1,self%chain(2)%numirreps))
+				 self%subconjarray(1,1) = 1   !E
+				 self%subconjarray(1,2) = 3   !C_2
+				 self%subconjarray(1,3) = 6   !sigma_v(xz)
+				 self%subconjarray(1,4) = 4   !sigma_v(yz) = sigma_h 
+
+			else
+				 print*, "ERROR: canonical chain of groups implemented only for D3h, STOPPING"
+				 error stop
+			end if
+
+
+			!Calculate clebsch-gordan decomposition of each group irrep in the chain
+			numirrs = self%chain(1)%numirreps
+			allocate(self%amat(self%numgroups-1, numirrs, numirrs))
+			self%amat(:,:,:) = 0
+
+			do ii = 1, self%numgroups-1
+				 numirrs1=self%chain(ii)%numirreps
+				 numirrs2=self%chain(ii+1)%numirreps
+				 allocate(temp(numirrs1, numirrs2))
+
+				 call subdecomp(self%chain(ii), self%chain(ii+1), self%subconjarray(ii,:), temp)
+				 self%amat(ii,1:numirrs1,1:numirrs2) = temp(1:numirrs1,1:numirrs2)
+
+				 deallocate(temp)
+			end do
+
+
+
+	 end subroutine construct_chain
+
+
+
+	 !TODO: change this so that it does this for a canonical CHAIN of groups
 
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: construct_harmonics
@@ -201,19 +317,73 @@ module symmetry
 			self%coeffs(:,:,:) = 0.0d0
 
 			do l = 0, maxl
-				 call construct_rep(self,l)
+				 call construct_rep_group(self,l)
 			end do
 
 	 end subroutine construct_harmonics
 
 
-	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: construct_rep
+	 !Purpose: constructs the representation matrix of the 'group' operator 
+	 !         C = C_G + C_H + .., whose diagonalisation yields expansion coefficients
+	 !         for symmetry adapted functions.
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine construct_rep(self,l,maxl)
+			implicit none
+			type(groupchain):: self
+			integer:: ii
+			integer:: maxl, maxnum, l, numfuncs
+			integer:: m
+			real*8, dimension(:,:), allocatable:: C, CTemp, coeffs
+			real*8, dimension(:), allocatable:: eigs
+
+			maxnum = (maxl+1)**2
+
+			allocate(self%coeffs(1:maxnum,1:maxnum,0:maxl))
+			self%coeffs(:,:,:) = 0.0d0
+
+			do l = 0, maxl
+				 numfuncs = (2*l+1)**2
+				 allocate(C(numfuncs,numfuncs), CTemp(numfuncs,numfuncs))
+				 allocate(eigs(numfuncs), coeffs(numfuncs,numfuncs))
+			   C(:,:) = 0.0d0
+
+			   do ii = 1, self%numgroups
+						CTemp(:,:) = 0.0d0
+						!call construct_rep_group(self%chain(ii), l, CTemp)
+						C(:,:) = C(:,:) + CTemp(:,:) 
+			   end do
+
+         !Save eigenvector coefficients and eigenvalues
+         coeffs(:,:) = 0.0d0
+         eigs(:) = 0.0d0
+         call project(C, numfuncs, coeffs, eigs) 
+         
+         !Correct sign problem 
+         do m = 1, numfuncs
+            if (sum(coeffs(:,m)) .lt. 0.0d0) then
+               coeffs(:,m) = (-1.0d0)*coeffs(:,m)
+            end if
+         end do
+				 self%coeffs(1:numfuncs,1:numfuncs,l) = coeffs(1:numfuncs,1:numfuncs)
+
+				 deallocate(C, CTemp)
+			end do
+         
+	 end subroutine construct_rep
+
+
+
+	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: construct_rep_group
 	 !Purpose: calculates the matrix representation of the operator C_G using the
 	 !         wigner-d matrices, then diagonalises it to get expansion coefficients 
 	 !         for symmetry adapted functions.
 	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 subroutine construct_rep(self, l)
+	 subroutine construct_rep_group(self, l)
 			 use input_data
 			 use realharms
 			 use acc_wig
@@ -313,13 +483,52 @@ module symmetry
 				 
 			 deallocate(C, CReal)
 
-   end subroutine construct_rep
+   end subroutine construct_rep_group
+
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: subdecomp
+	 !Purpose: decomposes the subduced representation of a point group into irreps of
+	 !         of a subgroup
+	 !Def: subduced representation: restriction of a representation of a group G to 
+	 !    a subgroup H < G
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 subroutine subdecomp(self, subgroup, subconjarray, amat)
+			implicit none
+			type(group):: self, subgroup
+			integer, dimension(subgroup%numirreps):: subconjarray
+			integer:: ii,jj, p
+			integer:: a, order
+			integer:: m
+			integer, dimension(self%numirreps,subgroup%numirreps):: amat
+
+			amat(:,:) = 0
+			!Loop over point group G irreps and H irreps
+			do ii = 1, self%numirreps
+				 do jj = 1, subgroup%numirreps
+						!#conjugacy classes = #irreps
+						a = 0
+						do p = 1, subgroup%numirreps 
+							 !Location of the p'th conjugacy class of H within those of G
+							 m = subconjarray(p)
+
+						   a = a + subgroup%conorder(p)*subgroup%chartable(jj,p)*self%chartable(ii,m)
+						end do
+						order = sum(subgroup%conorder(:))
+						a = a/order
+						amat(ii,jj) = a
+						!print*, "(mu,v) = ", self%irrlabel(ii), subgroup%irrlabel(jj),  a
+	       end do
+	    end do
+
+	 end subroutine subdecomp
 
 
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 !Subroutine: project
-	 !Purpose: computes diagonalises the matrix representation of the operator C_II, used to
+	 !Purpose: diagonalises the matrix representation of the operator C_II, used to
 	 !         project a space of functions onto group irreps.
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine project(CMat, spacedim, coeffs, eigs)
@@ -337,11 +546,6 @@ module symmetry
 			 !real*8, dimension(:,:), allocatable:: id
 			 integer:: ii
 
-			 !allocate(id(spacedim, spacedim))
-			 !id(:,:) = 0.0d0
-			 !do ii = 1, spacedim
-			 ! 	id(ii,ii) = 1.0d0
-			 !end do
 			 coeffs(:,:) = 0.0d0
 
 			 !Diagonalise the representation matrix
@@ -379,54 +583,12 @@ module symmetry
 
    end subroutine project
 
-
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !Subroutine: getEulerAngles
-	 !Purpose: using the axis-angle representation of a rotation for a given choice of basis,
-	 !         computes the matrix of the rotation, followed by the euler angles of the rotation
-	 !         from the matrix elements.
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	 !subroutine getEulerAngles(nx, ny, nz, angle,euler)
-	 ! 	implicit none
-	 ! 	real*8, dimension(3):: euler
-	 ! 	real*8:: angle   !Rotation angle
-	 ! 	real*8, dimension(3,3):: R
-	 ! 	real*8:: c, s
-	 ! 	real*8:: nx, ny, nz  !Components of axis unit vector
-	 ! 	integer:: ii
-	 ! 	
-	 ! 	print*, "HERE"
-	 ! 	c = cos(angle)
-	 ! 	s = sin(angle)
-
-	 ! 	!!Compute rotation matrix elements
-	 ! 	!R(:,:) = 0.0d0
-	 ! 	!R(1,1) = c + (nx**2)*(1.0d0-c)
-	 ! 	!R(1,2) = nx*ny*(1.0d0-c) - nz*s
-	 ! 	!R(1,3) = nx*nz*(1.0d0-c) + ny*s
-	 ! 	!R(2,1) = ny*nx*(1.0d0-c) + nz*s
-	 ! 	!R(2,2) = c + (ny**2)*(1.0d0-c)
-	 ! 	!R(2,3) = ny*nz*(1.0d0-c) - nx*s
-	 ! 	!R(3,1) = nz*nx*(1.0d0-c) - ny*s
-	 ! 	!R(3,2) = nz*ny*(1.0d0-c) + nx*s
-	 ! 	!R(3,3) = c + (nz**2)*(1.0d0-c)
-
-	 ! 	!!Compute euler angles
-	 ! 	!euler(1) = atan(-R(2,3)/R(3,3))    !alpha
-	 ! 	!euler(2) = atan(R(1,3)/sqrt(R(2,3)**2 + R(3,3)**2)) !beta
-	 ! 	!euler(3) = atan(-R(1,2)/R(1,1))   !gamma
-	 ! 	print*, "IN: ", nx, ny, nz, angle
-	 ! 	!plus = 2.0d0*atan(
-
-	 ! 	!do ii = 1, 3
-	 ! 	!	 print*, R(ii,:)
-	 ! 	!end do
-	 ! 	!print*, euler(1), euler(2), euler(3) 
-
-	 !end subroutine getEulerAngles
-
-
-
+	 
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 !Subroutine: axistoeuler
+	 !Purpose: computes the euler angles of a rotation given its axis-angle representation
+	 !         nhat=(theta, phi), angle
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 subroutine axistoeuler(theta, phi, angle, euler)
 			implicit none
 			real*8, dimension(3):: euler

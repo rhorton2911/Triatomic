@@ -61,6 +61,7 @@ program H3Plus
 	 integer:: harm
 	 !For symmetry adaptation
 	 type(group):: symgroup
+	 type(groupchain):: symchain
 
 
    !Intrinsic date and time subroutine
@@ -77,6 +78,7 @@ program H3Plus
 
 
 	 call init_group(symgroup, "C2v") 
+	 call construct_chain(symchain, "D3h")
 	 call construct_harmonics(symgroup)
 	 !call construct_rep(symgroup, 1) !Test l=0
    

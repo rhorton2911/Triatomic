@@ -33,6 +33,7 @@ do
    echo "${E}" >> EVals.txt
    cd "E${E}"
 
+	 rm *ICS*
    #Remove previous pbs output files
    rm *.e*
    rm *.o*

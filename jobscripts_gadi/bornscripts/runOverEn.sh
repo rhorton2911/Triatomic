@@ -14,7 +14,7 @@ fi
 cd "$codeDir"
 cp main "$scratchDir"/
 cd ../
-cp data.in "$scratchDir"/
+#cp data.in "$scratchDir"/
 cd "$scratchDir"
 
 rm EVals.txt
@@ -32,6 +32,7 @@ do
    echo "${E}" >> EVals.txt
    cd "E${E}"
 
+   rm *ICS*
    #Remove previous pbs output files
    rm *.e*
    rm *.o*
